@@ -27,7 +27,7 @@ Load this skill at the start of any task involving Atlas. It defines the constra
 - **Product**: Atlas
 - **Company**: Nesbite
 - **Description**: Engineering Intelligence Platform
-- UI copy and all code artifacts use "Atlas", not "AtlasOS" (legacy string in the codebase, being phased out).
+- UI copy, code, docs, and all artifacts use "Atlas" — never "AtlasOS".
 
 ### Package manager
 
@@ -151,4 +151,4 @@ All code, comments, UI copy, commit messages, and documentation are in English.
 - Do not add `.down.sql` migration files.
 - Do not use `gray-*` or `slate-*` Tailwind tokens.
 - Do not use relative imports in the frontend (`../../`) — use `@/` aliases.
-- Do not write "AtlasOS" in new UI copy.
+- Do not write "AtlasOS" anywhere — the product name is "Atlas".
