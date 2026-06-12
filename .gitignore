@@ -1,0 +1,47 @@
+# Binaries
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go
+*.test
+*.out
+/vendor/
+go.work.sum
+
+# Node / React
+web/node_modules/
+web/dist/
+web/.vite/
+web/.env
+web/.env.local
+web/.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Docker
+docker-compose.override.yml
+
+# Coverage
+coverage/
+*.coverprofile
+
+# OS
+Thumbs.db

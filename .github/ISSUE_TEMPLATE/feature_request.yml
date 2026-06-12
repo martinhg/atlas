@@ -1,0 +1,54 @@
+name: Feature Request
+description: Suggest a new feature for AtlasOS
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please describe the problem you're trying to solve.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem are you trying to solve? Describe the pain point.
+      placeholder: I'm frustrated when...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How do you think this could be solved?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What other solutions have you considered?
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of AtlasOS would this affect?
+      options:
+        - CLI
+        - Web App
+        - API
+        - Data Ingestion
+        - Impact Analysis
+        - Search
+        - New Component
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other context, mockups, or references.
