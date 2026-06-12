@@ -55,11 +55,12 @@ audit-web: ## Audit frontend dependencies for vulnerabilities
 
 # --- Database ---
 
-migrate-up: ## Run database migrations
-	@echo "TODO: implement with golang-migrate"
+migrate-up: ## Run database migrations (runs automatically on server start)
+	go run ./cmd/atlas-server
 
 migrate-down: ## Rollback last migration
-	@echo "TODO: implement with golang-migrate"
+	@echo "Migrations run on server startup. To rollback, apply a down migration manually:"
+	@echo "  psql \$$DATABASE_URL < migrations/000001_create_users.down.sql"
 
 # --- Cleanup ---
 
