@@ -16,7 +16,7 @@ export default function DashboardPage({ user, onLogout }: Props) {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="border-b border-zinc-800 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold tracking-tight">AtlasOS</h1>
+          <h1 className="text-xl font-bold tracking-tight">Atlas</h1>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
               {user.avatar_url && (

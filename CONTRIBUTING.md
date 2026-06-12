@@ -1,6 +1,6 @@
-# Contributing to AtlasOS
+# Contributing to Atlas
 
-Thank you for your interest in contributing to AtlasOS! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Atlas! This document provides guidelines and instructions for contributing.
 
 ## Code of Conduct
 
@@ -8,7 +8,7 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 
 ## License
 
-AtlasOS uses a dual-license model:
+Atlas uses a dual-license model:
 
 - **CLI and parsers** (`cmd/atlas/`, `internal/ingest/parsers/`) are licensed under [Apache License 2.0](cmd/atlas/LICENSE).
 - **Server and web application** (everything else) are licensed under [Business Source License 1.1](LICENSE).
@@ -20,7 +20,7 @@ By contributing, you agree that your contributions will be licensed under the ap
 ### Prerequisites
 
 - Go 1.23+
-- Node.js 20+
+- Node.js 22+
 - pnpm 11+ (`npm i -g pnpm`)
 - Docker and Docker Compose
 - Make
