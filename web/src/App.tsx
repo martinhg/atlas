@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import LoginPage from "./components/LoginPage";
-import DashboardPage from "./components/DashboardPage";
+import { useEffect, useState } from "react"
+import LoginPage from "@/components/LoginPage"
+import DashboardPage from "@/components/DashboardPage"
 import {
   type User,
   extractTokensFromHash,
@@ -8,7 +8,7 @@ import {
   hasRefreshToken,
   refreshAccessToken,
   fetchCurrentUser,
-} from "./lib/auth";
+} from "@/lib/auth"
 
 type AuthStatus = "loading" | "unauthenticated" | "authenticated";
 
