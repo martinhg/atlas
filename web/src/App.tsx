@@ -1,33 +1,73 @@
 import { useEffect, useState } from "react";
+import LoginPage from "./components/LoginPage";
+import DashboardPage from "./components/DashboardPage";
+import {
+  type User,
+  extractTokensFromHash,
+  setTokens,
+  hasRefreshToken,
+  refreshAccessToken,
+  fetchCurrentUser,
+} from "./lib/auth";
 
-interface VersionInfo {
-  version: string;
-  name: string;
-}
+type AuthStatus = "loading" | "unauthenticated" | "authenticated";
 
 function App() {
-  const [info, setInfo] = useState<VersionInfo | null>(null);
+  const [status, setStatus] = useState<AuthStatus>("loading");
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    fetch("/api/v1/version")
-      .then((r) => r.json())
-      .then(setInfo)
-      .catch(() => setInfo(null));
+    async function init() {
+      const tokens = extractTokensFromHash();
+      if (tokens) {
+        setTokens(tokens.access, tokens.refresh);
+        const me = await fetchCurrentUser();
+        if (me) {
+          setUser(me);
+          setStatus("authenticated");
+          return;
+        }
+      }
+
+      if (hasRefreshToken()) {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          const me = await fetchCurrentUser();
+          if (me) {
+            setUser(me);
+            setStatus("authenticated");
+            return;
+          }
+        }
+      }
+
+      setStatus("unauthenticated");
+    }
+
+    init();
   }, []);
 
-  return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center">
-      <div className="text-center space-y-6">
-        <h1 className="text-5xl font-bold tracking-tight">AtlasOS</h1>
-        <p className="text-zinc-400 text-lg">
-          Engineering Intelligence Platform
-        </p>
-        {info && (
-          <p className="text-zinc-500 text-sm font-mono">v{info.version}</p>
-        )}
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center">
+        <div className="text-zinc-500 animate-pulse">Loading...</div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (status === "authenticated" && user) {
+    return (
+      <DashboardPage
+        user={user}
+        onLogout={() => {
+          setUser(null);
+          setStatus("unauthenticated");
+        }}
+      />
+    );
+  }
+
+  return <LoginPage />;
 }
 
 export default App;
