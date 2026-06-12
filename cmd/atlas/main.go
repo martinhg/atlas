@@ -29,7 +29,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println(`AtlasOS CLI - Engineering Intelligence
+	fmt.Println(`Atlas CLI - Engineering Intelligence
 
 Usage:
   atlas <command>

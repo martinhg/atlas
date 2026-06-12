@@ -26,7 +26,7 @@ describe("App", () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "AtlasOS" })).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: "Atlas" })).toBeInTheDocument()
     })
   })
 
@@ -38,7 +38,7 @@ describe("App", () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "AtlasOS" })).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: "Atlas" })).toBeInTheDocument()
     })
   })
 

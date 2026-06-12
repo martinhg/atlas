@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug in AtlasOS
+description: Report a bug in Atlas
 title: "[Bug]: "
 labels: ["bug", "triage"]
 body:
@@ -49,7 +49,7 @@ body:
     id: component
     attributes:
       label: Component
-      description: Which part of AtlasOS is affected?
+      description: Which part of Atlas is affected?
       options:
         - CLI
         - Web App
