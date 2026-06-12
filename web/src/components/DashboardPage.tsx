@@ -1,16 +1,18 @@
-import type { User } from "../lib/auth";
-import { clearAuth } from "../lib/auth";
+import type { User } from "@/lib/auth"
+import { clearAuth } from "@/lib/auth"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 
 interface Props {
-  user: User;
-  onLogout: () => void;
+  user: User
+  onLogout: () => void
 }
 
 export default function DashboardPage({ user, onLogout }: Props) {
   const handleLogout = () => {
-    clearAuth();
-    onLogout();
-  };
+    clearAuth()
+    onLogout()
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -19,21 +21,20 @@ export default function DashboardPage({ user, onLogout }: Props) {
           <h1 className="text-xl font-bold tracking-tight">AtlasOS</h1>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
-              {user.avatar_url && (
-                <img
-                  src={user.avatar_url}
-                  alt={user.login}
-                  className="w-8 h-8 rounded-full"
-                />
-              )}
+              <Avatar>
+                <AvatarImage src={user.avatar_url} alt={user.login} />
+                <AvatarFallback>{user.login.slice(0, 2).toUpperCase()}</AvatarFallback>
+              </Avatar>
               <span className="text-sm text-zinc-300">{user.login}</span>
             </div>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleLogout}
-              className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+              className="text-zinc-500 hover:text-zinc-300"
             >
               Sign out
-            </button>
+            </Button>
           </div>
         </div>
       </header>
@@ -49,5 +50,5 @@ export default function DashboardPage({ user, onLogout }: Props) {
         </div>
       </main>
     </div>
-  );
+  )
 }
