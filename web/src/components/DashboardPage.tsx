@@ -1,7 +1,11 @@
+import { Link } from "react-router-dom"
 import type { User } from "@/lib/auth"
 import { clearAuth } from "@/lib/auth"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { useOrgs } from "@/hooks/useOrgs"
+
+const GITHUB_APP_SLUG = import.meta.env.VITE_GITHUB_APP_SLUG || "atlas-dev"
 
 interface Props {
   user: User
@@ -9,6 +13,8 @@ interface Props {
 }
 
 export default function DashboardPage({ user, onLogout }: Props) {
+  const { data: orgs, isLoading: orgsLoading } = useOrgs()
+
   const handleLogout = () => {
     clearAuth()
     onLogout()
@@ -40,13 +46,54 @@ export default function DashboardPage({ user, onLogout }: Props) {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-12">
-        <div className="space-y-2">
-          <h2 className="text-2xl font-semibold">
-            Welcome, {user.name || user.login}
-          </h2>
-          <p className="text-zinc-400">
-            Your engineering intelligence dashboard is coming soon.
-          </p>
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <h2 className="text-2xl font-semibold">
+              Welcome, {user.name || user.login}
+            </h2>
+            <p className="text-zinc-400">
+              Your engineering intelligence dashboard.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium">Organizations</h3>
+              <Button asChild size="sm" variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+                <a href={`https://github.com/apps/${GITHUB_APP_SLUG}/installations/new`}>
+                  Connect GitHub
+                </a>
+              </Button>
+            </div>
+
+            {orgsLoading && (
+              <p className="text-zinc-500 text-sm animate-pulse">Loading organizations...</p>
+            )}
+
+            {orgs && orgs.length === 0 && (
+              <p className="text-zinc-500 text-sm">
+                No organizations connected yet. Click "Connect GitHub" to get started.
+              </p>
+            )}
+
+            {orgs && orgs.length > 0 && (
+              <div className="grid gap-3">
+                {orgs.map((org) => (
+                  <Link
+                    key={org.id}
+                    to={`/orgs/${org.id}/repos`}
+                    className="flex items-center justify-between p-4 rounded-lg border border-zinc-800 hover:border-zinc-700 transition-colors"
+                  >
+                    <div>
+                      <p className="font-medium">{org.name}</p>
+                      <p className="text-sm text-zinc-500">{org.slug}</p>
+                    </div>
+                    <span className="text-zinc-600 text-sm">View repos →</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>
