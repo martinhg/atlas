@@ -45,7 +45,9 @@ func TestLoad_allVarsPresent(t *testing.T) {
 
 func TestLoad_defaults(t *testing.T) {
 	setRequiredVars(t)
-	// DATABASE_URL and PORT are intentionally not set — they should use defaults.
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("PORT", "")
+	t.Setenv("WEB_URL", "")
 
 	cfg, err := Load()
 	if err != nil {
