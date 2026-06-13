@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/cors"
 
 	"github.com/nesbite/atlas/internal/auth"
+	"github.com/nesbite/atlas/internal/catalog"
 	"github.com/nesbite/atlas/internal/org"
 	"github.com/nesbite/atlas/internal/platform/config"
 	"github.com/nesbite/atlas/internal/platform/database"
@@ -54,9 +55,12 @@ func main() {
 	)
 
 	orgStore := org.NewStore(pool)
+	catalogStore := catalog.NewStore(pool)
+	catalogHandler := catalog.NewHandler(catalogStore)
+
 	orgHandler := org.NewHandler(
 		orgStore,
-		nil,
+		catalogStore,
 		cfg.GitHubAppID,
 		cfg.GitHubAppPrivateKey,
 		cfg.GitHubWebhookSecret,
@@ -96,6 +100,7 @@ func main() {
 			r.Use(auth.Middleware(cfg.JWTSecret))
 			r.Get("/auth/me", authHandler.HandleMe)
 			r.Route("/orgs", orgHandler.Routes())
+			r.Get("/orgs/{orgID}/repos", catalogHandler.HandleListRepos)
 		})
 	})
 
