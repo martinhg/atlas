@@ -15,15 +15,22 @@ import (
 	"golang.org/x/oauth2/github"
 )
 
+// UserStore is the persistence interface required by Handler.
+// The concrete *Store satisfies it automatically.
+type UserStore interface {
+	UpsertUser(ctx context.Context, u *User, accessToken string) (*User, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (*User, error)
+}
+
 type Handler struct {
 	oauthConfig *oauth2.Config
-	store       *Store
+	store       UserStore
 	jwtSecret   string
 	webURL      string
 	states      sync.Map
 }
 
-func NewHandler(clientID, clientSecret, jwtSecret, webURL string, store *Store) *Handler {
+func NewHandler(clientID, clientSecret, jwtSecret, webURL string, store UserStore) *Handler {
 	return &Handler{
 		oauthConfig: &oauth2.Config{
 			ClientID:     clientID,

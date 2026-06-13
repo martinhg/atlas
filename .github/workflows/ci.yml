@@ -42,9 +42,19 @@ jobs:
         run: go build ./...
 
       - name: Test
-        run: go test ./... -v -race -count=1
+        run: go test ./... -v -race -count=1 -coverprofile=coverage.out
         env:
           DATABASE_URL: postgres://atlas:atlas@localhost:5432/atlas_test?sslmode=disable
+
+      - name: Check coverage
+        run: |
+          total=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Total coverage: ${total}%"
+          threshold=60
+          if [ "$(echo "$total < $threshold" | bc -l)" -eq 1 ]; then
+            echo "FAIL: Coverage ${total}% is below threshold ${threshold}%"
+            exit 1
+          fi
 
   web:
     name: Web
