@@ -12,13 +12,24 @@ import (
 )
 
 func RunMigrations(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS) error {
-	_, err := pool.Exec(ctx, `
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return fmt.Errorf("acquire connection: %w", err)
+	}
+	defer conn.Release()
+
+	// Advisory lock prevents concurrent migration runs from parallel test packages.
+	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock(42)"); err != nil {
+		return fmt.Errorf("acquire migration lock: %w", err)
+	}
+	defer conn.Exec(ctx, "SELECT pg_advisory_unlock(42)")
+
+	if _, err := conn.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			version TEXT PRIMARY KEY,
 			applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)
-	`)
-	if err != nil {
+	`); err != nil {
 		return fmt.Errorf("create schema_migrations: %w", err)
 	}
 
@@ -39,7 +50,7 @@ func RunMigrations(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS) er
 		version := strings.TrimSuffix(name, ".up.sql")
 
 		var exists bool
-		err := pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version = $1)", version).Scan(&exists)
+		err := conn.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version = $1)", version).Scan(&exists)
 		if err != nil {
 			return fmt.Errorf("check migration %s: %w", version, err)
 		}
@@ -52,7 +63,7 @@ func RunMigrations(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS) er
 			return fmt.Errorf("read migration %s: %w", name, err)
 		}
 
-		tx, err := pool.Begin(ctx)
+		tx, err := conn.Begin(ctx)
 		if err != nil {
 			return fmt.Errorf("begin tx for %s: %w", name, err)
 		}

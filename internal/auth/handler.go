@@ -23,11 +23,13 @@ type UserStore interface {
 }
 
 type Handler struct {
-	oauthConfig *oauth2.Config
-	store       UserStore
-	jwtSecret   string
-	webURL      string
-	states      sync.Map
+	oauthConfig    *oauth2.Config
+	store          UserStore
+	jwtSecret      string
+	webURL         string
+	states         sync.Map
+	httpClient     *http.Client
+	githubBaseURL  string
 }
 
 func NewHandler(clientID, clientSecret, jwtSecret, webURL string, store UserStore) *Handler {
@@ -38,9 +40,11 @@ func NewHandler(clientID, clientSecret, jwtSecret, webURL string, store UserStor
 			Scopes:       []string{"read:user", "user:email"},
 			Endpoint:     github.Endpoint,
 		},
-		store:     store,
-		jwtSecret: jwtSecret,
-		webURL:    webURL,
+		store:         store,
+		jwtSecret:     jwtSecret,
+		webURL:        webURL,
+		httpClient:    http.DefaultClient,
+		githubBaseURL: "https://api.github.com",
 	}
 }
 
@@ -87,7 +91,7 @@ func (h *Handler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ghUser, err := fetchGitHubUser(r.Context(), token.AccessToken)
+	ghUser, err := h.fetchGitHubUser(r.Context(), token.AccessToken)
 	if err != nil {
 		slog.Error("failed to fetch github user", "error", err)
 		http.Error(w, "failed to fetch user info", http.StatusInternalServerError)
@@ -162,15 +166,15 @@ type githubAPIUser struct {
 	AvatarURL *string `json:"avatar_url"`
 }
 
-func fetchGitHubUser(ctx context.Context, accessToken string) (*User, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/user", nil)
+func (h *Handler) fetchGitHubUser(ctx context.Context, accessToken string) (*User, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", h.githubBaseURL+"/user", nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := h.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

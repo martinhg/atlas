@@ -52,7 +52,7 @@ jobs:
           grep "^github.com/nesbite/atlas/internal/" coverage.out >> coverage-internal.out
           total=$(go tool cover -func=coverage-internal.out | grep total | awk '{print $3}' | sed 's/%//')
           echo "Total coverage (internal/): ${total}%"
-          threshold=40
+          threshold=55
           if [ "$(echo "$total < $threshold" | bc -l)" -eq 1 ]; then
             echo "FAIL: Coverage ${total}% is below threshold ${threshold}%"
             exit 1
@@ -98,8 +98,8 @@ jobs:
       - name: Type check
         run: pnpm typecheck
 
-      - name: Test
-        run: pnpm test
+      - name: Test with coverage
+        run: pnpm test:coverage
 
       - name: Build
         run: pnpm build
