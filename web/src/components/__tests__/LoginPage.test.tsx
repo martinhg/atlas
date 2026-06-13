@@ -3,9 +3,9 @@ import { render, screen } from "@testing-library/react"
 import LoginPage from "@/components/LoginPage"
 
 describe("LoginPage", () => {
-  it("renders the AtlasOS heading", () => {
+  it("renders the Atlas heading", () => {
     render(<LoginPage />)
-    expect(screen.getByRole("heading", { name: "AtlasOS" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Atlas" })).toBeInTheDocument()
   })
 
   it("renders the Sign in with GitHub link", () => {

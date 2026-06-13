@@ -12,7 +12,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center">
       <Card className="w-full max-w-sm border-zinc-800 bg-zinc-950">
         <CardHeader className="text-center space-y-3 pb-4">
-          <h1 className="text-5xl font-bold tracking-tight">AtlasOS</h1>
+          <h1 className="text-5xl font-bold tracking-tight">Atlas</h1>
           <p className="text-zinc-400 text-lg">Engineering Intelligence Platform</p>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-6">

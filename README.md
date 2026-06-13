@@ -1,8 +1,8 @@
-# AtlasOS
+# Atlas
 
 **Engineering Intelligence Platform** — Map your entire software ecosystem and know what breaks before you break it.
 
-AtlasOS gives engineering teams a living map of their repositories, dependencies, services, and teams. It answers the questions that slow organizations down:
+Atlas gives engineering teams a living map of their repositories, dependencies, services, and teams. It answers the questions that slow organizations down:
 
 - **"What depends on this?"** — Instant dependency graph across all repos
 - **"What breaks if we update X?"** — Impact analysis with blast radius
@@ -14,7 +14,7 @@ AtlasOS gives engineering teams a living map of their repositories, dependencies
 ### Prerequisites
 
 - Go 1.23+
-- Node.js 20+
+- Node.js 22+
 - pnpm 11+ (`npm i -g pnpm`)
 - Docker
 
@@ -55,7 +55,7 @@ atlas/
 
 ## CLI
 
-The AtlasOS CLI is open source (Apache 2.0) and can be used standalone:
+The Atlas CLI is open source (Apache 2.0) and can be used standalone:
 
 ```bash
 # Install
@@ -78,7 +78,7 @@ atlas scan
 
 ## License
 
-AtlasOS uses a dual-license model:
+Atlas uses a dual-license model:
 
 - **CLI and parsers** — [Apache License 2.0](cmd/atlas/LICENSE)
 - **Server and web app** — [Business Source License 1.1](LICENSE)

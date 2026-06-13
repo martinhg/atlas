@@ -1,5 +1,5 @@
 name: Feature Request
-description: Suggest a new feature for AtlasOS
+description: Suggest a new feature for Atlas
 title: "[Feature]: "
 labels: ["enhancement"]
 body:
@@ -35,7 +35,7 @@ body:
     id: component
     attributes:
       label: Component
-      description: Which part of AtlasOS would this affect?
+      description: Which part of Atlas would this affect?
       options:
         - CLI
         - Web App

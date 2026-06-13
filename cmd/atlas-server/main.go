@@ -73,7 +73,7 @@ func main() {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/version", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"version":"0.1.0","name":"AtlasOS"}`))
+			w.Write([]byte(`{"version":"0.1.0","name":"Atlas"}`))
 		})
 
 		r.Get("/auth/github/login", authHandler.HandleLogin)
