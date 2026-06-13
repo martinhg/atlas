@@ -57,7 +57,7 @@ describe("RepoListPage", () => {
       data: undefined,
       isLoading: true,
       error: null,
-    } as ReturnType<typeof useRepos>);
+    } as unknown as ReturnType<typeof useRepos>);
 
     renderPage();
     expect(screen.getByText(/loading repositories/i)).toBeInTheDocument();
@@ -68,7 +68,7 @@ describe("RepoListPage", () => {
       data: undefined,
       isLoading: false,
       error: new Error("fail"),
-    } as ReturnType<typeof useRepos>);
+    } as unknown as ReturnType<typeof useRepos>);
 
     renderPage();
     expect(screen.getByText(/failed to load repositories/i)).toBeInTheDocument();
@@ -79,7 +79,7 @@ describe("RepoListPage", () => {
       data: mockRepos,
       isLoading: false,
       error: null,
-    } as ReturnType<typeof useRepos>);
+    } as unknown as ReturnType<typeof useRepos>);
 
     renderPage();
 
@@ -94,7 +94,7 @@ describe("RepoListPage", () => {
       data: [],
       isLoading: false,
       error: null,
-    } as ReturnType<typeof useRepos>);
+    } as unknown as ReturnType<typeof useRepos>);
 
     renderPage();
     expect(screen.getByRole("heading", { name: "Repositories" })).toBeInTheDocument();
@@ -105,7 +105,7 @@ describe("RepoListPage", () => {
       data: [],
       isLoading: false,
       error: null,
-    } as ReturnType<typeof useRepos>);
+    } as unknown as ReturnType<typeof useRepos>);
 
     renderPage();
     expect(screen.getByRole("link", { name: "Atlas" })).toHaveAttribute(
@@ -119,7 +119,7 @@ describe("RepoListPage", () => {
       data: [],
       isLoading: false,
       error: null,
-    } as ReturnType<typeof useRepos>);
+    } as unknown as ReturnType<typeof useRepos>);
 
     renderPage();
     expect(screen.getByRole("button", { name: /sign out/i })).toBeInTheDocument();
