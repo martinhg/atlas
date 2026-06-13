@@ -1,5 +1,8 @@
+import { useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { extractTokensFromHash, setTokens, hasRefreshToken } from "@/lib/auth"
 
 const GITHUB_ICON = (
   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -8,6 +11,21 @@ const GITHUB_ICON = (
 )
 
 export default function LoginPage() {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const tokens = extractTokensFromHash()
+    if (tokens) {
+      setTokens(tokens.access, tokens.refresh)
+      navigate("/dashboard", { replace: true })
+      return
+    }
+
+    if (hasRefreshToken()) {
+      navigate("/dashboard", { replace: true })
+    }
+  }, [navigate])
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center">
       <Card className="w-full max-w-sm border-zinc-800 bg-zinc-950">
