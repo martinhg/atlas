@@ -102,7 +102,7 @@ describe("AuthGuard", () => {
     vi.spyOn(auth, "refreshAccessToken").mockResolvedValue(true);
     vi.spyOn(auth, "fetchCurrentUser").mockResolvedValue(mockUser);
 
-    const { rerender: _ } = renderWithRouter(
+    renderWithRouter(
       <AuthGuard>
         {(user, onLogout) => (
           <div>

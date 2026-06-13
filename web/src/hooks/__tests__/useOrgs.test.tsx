@@ -25,8 +25,10 @@ describe("useOrgs", () => {
   });
 
   it("returns orgs on success", async () => {
-    const orgs = [{ id: "1", name: "org-1", slug: "org-1" }];
-    mockFetchOrgs.mockResolvedValue(orgs as any);
+    const orgs: Awaited<ReturnType<typeof fetchOrgs>> = [
+      { id: "1", github_id: 1, name: "org-1", slug: "org-1", owner_id: "u1", created_at: "", updated_at: "" },
+    ];
+    mockFetchOrgs.mockResolvedValue(orgs);
 
     const { result } = renderHook(() => useOrgs(), { wrapper: createWrapper() });
 
