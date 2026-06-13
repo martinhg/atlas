@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -200,6 +201,174 @@ func TestHandleGitHubWebhook_200_installation_created(t *testing.T) {
 	}
 }
 
+// --- Additional coverage tests ---
+
+func TestHandleListOrgs_500_storeError(t *testing.T) {
+	orgS := &handlerMockOrgStore{orgsErr: errors.New("db down")}
+	h := newTestHandler(orgS)
+
+	req := httptest.NewRequest(http.MethodGet, "/orgs", nil)
+	req = reqWithUserID(req, uuid.New())
+	w := httptest.NewRecorder()
+
+	h.HandleListOrgs(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+func TestHandleGetOrg_500_storeError(t *testing.T) {
+	orgS := &handlerMockOrgStore{getBySlugErr: errors.New("db error")}
+	h := newTestHandler(orgS)
+
+	r := chi.NewRouter()
+	r.Get("/orgs/{slug}", h.HandleGetOrg)
+
+	req := httptest.NewRequest(http.MethodGet, "/orgs/some-slug", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+func TestHandleConnect_401_noJWT(t *testing.T) {
+	h := newTestHandler(&handlerMockOrgStore{})
+	body := `{"installation_id": 123}`
+	req := httptest.NewRequest(http.MethodPost, "/orgs/connect", bytes.NewBufferString(body))
+	w := httptest.NewRecorder()
+
+	h.HandleConnect(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestHandleConnect_400_invalidBody(t *testing.T) {
+	h := newTestHandler(&handlerMockOrgStore{})
+	req := httptest.NewRequest(http.MethodPost, "/orgs/connect", bytes.NewBufferString("not-json"))
+	req = reqWithUserID(req, uuid.New())
+	w := httptest.NewRecorder()
+
+	h.HandleConnect(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestHandleConnect_500_installationCheckError(t *testing.T) {
+	orgS := &handlerMockOrgStore{getByInstErr: errors.New("db error")}
+	h := newTestHandler(orgS)
+
+	body := `{"installation_id": 123}`
+	req := httptest.NewRequest(http.MethodPost, "/orgs/connect", bytes.NewBufferString(body))
+	req = reqWithUserID(req, uuid.New())
+	w := httptest.NewRecorder()
+
+	h.HandleConnect(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+func TestHandleGitHubWebhook_200_installation_action_deleted(t *testing.T) {
+	orgS := &handlerMockOrgStore{}
+	h := newTestHandler(orgS)
+
+	payload := []byte(`{"action":"deleted","installation":{"id":12345,"account":{"id":100,"login":"my-org"}},"sender":{"id":1}}`)
+	sig := signPayload("test-webhook-secret", payload)
+
+	req := httptest.NewRequest(http.MethodPost, "/webhooks/github", bytes.NewBuffer(payload))
+	req.Header.Set("X-Hub-Signature-256", sig)
+	req.Header.Set("X-GitHub-Event", "installation")
+	w := httptest.NewRecorder()
+
+	h.HandleGitHubWebhook(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+
+	var resp map[string]string
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp["status"] != "ignored" {
+		t.Errorf("status = %q, want %q", resp["status"], "ignored")
+	}
+}
+
+func TestHandleGitHubWebhook_400_invalidJSON(t *testing.T) {
+	h := newTestHandler(&handlerMockOrgStore{})
+	payload := []byte(`not valid json at all`)
+	sig := signPayload("test-webhook-secret", payload)
+
+	req := httptest.NewRequest(http.MethodPost, "/webhooks/github", bytes.NewBuffer(payload))
+	req.Header.Set("X-Hub-Signature-256", sig)
+	req.Header.Set("X-GitHub-Event", "installation")
+	w := httptest.NewRecorder()
+
+	h.HandleGitHubWebhook(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestHandleGitHubWebhook_200_existingOrg_syncing(t *testing.T) {
+	existingOrg := &Organization{
+		ID:      uuid.New(),
+		Name:    "my-org",
+		Slug:    "my-org",
+		OwnerID: uuid.New(),
+	}
+	orgS := &handlerMockOrgStore{getByInstallation: existingOrg}
+	h := newTestHandler(orgS)
+
+	payload := []byte(`{"action":"created","installation":{"id":12345,"account":{"id":100,"login":"my-org"}},"sender":{"id":1}}`)
+	sig := signPayload("test-webhook-secret", payload)
+
+	req := httptest.NewRequest(http.MethodPost, "/webhooks/github", bytes.NewBuffer(payload))
+	req.Header.Set("X-Hub-Signature-256", sig)
+	req.Header.Set("X-GitHub-Event", "installation")
+	w := httptest.NewRecorder()
+
+	h.HandleGitHubWebhook(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+
+	var resp map[string]string
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp["status"] != "syncing" {
+		t.Errorf("status = %q, want %q", resp["status"], "syncing")
+	}
+}
+
+func TestRoutes_returnsRouterFunc(t *testing.T) {
+	h := newTestHandler(&handlerMockOrgStore{})
+	routerFn := h.Routes()
+	if routerFn == nil {
+		t.Fatal("Routes() returned nil")
+	}
+
+	r := chi.NewRouter()
+	r.Route("/orgs", routerFn)
+
+	req := httptest.NewRequest(http.MethodGet, "/orgs/", nil)
+	req = reqWithUserID(req, uuid.New())
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
+
 func signPayload(secret string, payload []byte) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(payload)
@@ -208,22 +377,32 @@ func signPayload(secret string, payload []byte) string {
 
 type handlerMockOrgStore struct {
 	getBySlug         *Organization
+	getBySlugErr      error
 	getByInstallation *Organization
+	getByInstErr      error
 	orgs              []Organization
+	orgsErr           error
 	upserted          *Organization
+	upsertErr         error
 }
 
 func (m *handlerMockOrgStore) UpsertOrg(_ context.Context, o *Organization) (*Organization, error) {
+	if m.upsertErr != nil {
+		return nil, m.upsertErr
+	}
 	o.ID = uuid.New()
 	m.upserted = o
 	return o, nil
 }
 
 func (m *handlerMockOrgStore) GetOrgBySlug(_ context.Context, _ string) (*Organization, error) {
-	return m.getBySlug, nil
+	return m.getBySlug, m.getBySlugErr
 }
 
 func (m *handlerMockOrgStore) GetOrgsByOwnerID(_ context.Context, _ uuid.UUID) ([]Organization, error) {
+	if m.orgsErr != nil {
+		return nil, m.orgsErr
+	}
 	if m.orgs == nil {
 		return []Organization{}, nil
 	}
@@ -231,7 +410,7 @@ func (m *handlerMockOrgStore) GetOrgsByOwnerID(_ context.Context, _ uuid.UUID) (
 }
 
 func (m *handlerMockOrgStore) GetOrgByInstallationID(_ context.Context, _ int64) (*Organization, error) {
-	return m.getByInstallation, nil
+	return m.getByInstallation, m.getByInstErr
 }
 
 func (m *handlerMockOrgStore) SetInstallationID(_ context.Context, _ uuid.UUID, _ int64) error {
