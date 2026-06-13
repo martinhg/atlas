@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/cors"
 
 	"github.com/nesbite/atlas/internal/auth"
+	"github.com/nesbite/atlas/internal/org"
 	"github.com/nesbite/atlas/internal/platform/config"
 	"github.com/nesbite/atlas/internal/platform/database"
 	"github.com/nesbite/atlas/migrations"
@@ -52,6 +53,15 @@ func main() {
 		authStore,
 	)
 
+	orgStore := org.NewStore(pool)
+	orgHandler := org.NewHandler(
+		orgStore,
+		nil,
+		cfg.GitHubAppID,
+		cfg.GitHubAppPrivateKey,
+		cfg.GitHubWebhookSecret,
+	)
+
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
@@ -80,9 +90,12 @@ func main() {
 		r.Get("/auth/github/callback", authHandler.HandleCallback)
 		r.Post("/auth/refresh", authHandler.HandleRefresh)
 
+		r.Post("/webhooks/github", orgHandler.HandleGitHubWebhook)
+
 		r.Group(func(r chi.Router) {
 			r.Use(auth.Middleware(cfg.JWTSecret))
 			r.Get("/auth/me", authHandler.HandleMe)
+			r.Route("/orgs", orgHandler.Routes())
 		})
 	})
 
