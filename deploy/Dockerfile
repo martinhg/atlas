@@ -1,4 +1,4 @@
-FROM golang:1.23-alpine AS go-builder
+FROM golang:1.26-alpine AS go-builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w" -o /atlas-server ./cmd/atlas-server
 
 
-FROM node:20-alpine AS web-builder
+FROM node:22-alpine AS web-builder
 
 RUN corepack enable && corepack prepare pnpm@11 --activate
 

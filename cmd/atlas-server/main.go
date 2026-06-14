@@ -68,7 +68,6 @@ func main() {
 
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
-	r.Use(chimw.RealIP)
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(cors.Handler(cors.Options{

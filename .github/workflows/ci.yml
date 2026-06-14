@@ -30,13 +30,25 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: "1.26"
+          cache: true
 
       - name: Download dependencies
         run: go mod download
 
       - name: Vet
         run: go vet ./...
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: latest
+          only-new-issues: true
+
+      - name: Vulnerability check
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
 
       - name: Build
         run: go build ./...
@@ -103,3 +115,50 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+
+  pr-checks:
+    name: PR Checks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate PR title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            chore
+            test
+            refactor
+            ci
+            perf
+            build
+            style
+          requireScope: false
+
+      - name: Check PR size
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          additions=$(gh pr view ${{ github.event.pull_request.number }} --json additions --jq '.additions')
+          deletions=$(gh pr view ${{ github.event.pull_request.number }} --json deletions --jq '.deletions')
+          total=$((additions + deletions))
+          echo "PR size: +${additions} -${deletions} (${total} total changed lines)"
+          if [ "$total" -gt 400 ]; then
+            echo "::warning::PR has ${total} changed lines (threshold: 400). Consider splitting into smaller PRs."
+          fi
