@@ -128,6 +128,10 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Validate PR title
         uses: amannn/action-semantic-pull-request@v5
         env:
@@ -145,3 +149,15 @@ jobs:
             build
             style
           requireScope: false
+
+      - name: Check PR size
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          additions=$(gh pr view ${{ github.event.pull_request.number }} --json additions --jq '.additions')
+          deletions=$(gh pr view ${{ github.event.pull_request.number }} --json deletions --jq '.deletions')
+          total=$((additions + deletions))
+          echo "PR size: +${additions} -${deletions} (${total} total changed lines)"
+          if [ "$total" -gt 400 ]; then
+            echo "::warning::PR has ${total} changed lines (threshold: 400). Consider splitting into smaller PRs."
+          fi
