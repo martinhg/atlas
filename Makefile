@@ -1,4 +1,4 @@
-.PHONY: help dev-up dev-down run-server run-web build build-cli build-server test test-web lint lint-web audit-web migrate-up migrate-down clean
+.PHONY: help dev-up dev-down run-server run-web build build-cli build-server test test-web lint lint-web audit-web vuln migrate-up migrate-down clean
 
 BINARY_SERVER=bin/atlas-server
 BINARY_CLI=bin/atlas
@@ -44,6 +44,9 @@ test-web: ## Run frontend tests
 
 lint: ## Lint Go code
 	golangci-lint run ./...
+
+vuln: ## Check Go dependencies for known vulnerabilities
+	govulncheck ./...
 
 lint-web: ## Lint frontend code
 	cd web && pnpm lint
