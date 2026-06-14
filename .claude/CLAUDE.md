@@ -4,7 +4,7 @@ Atlas is an Engineering Intelligence Platform by Nesbite. Impact Analysis is the
 
 ## Stack
 
-- **Backend**: Go 1.23+, chi router, pgx/pgxpool, godotenv, HS256 JWT
+- **Backend**: Go 1.26+, chi router, pgx/pgxpool, godotenv, HS256 JWT
 - **Frontend**: React 19, Vite 8, Tailwind CSS v4, shadcn/ui, TypeScript 6
 - **Database**: PostgreSQL
 - **Planned**: Zustand 5, Zod 4, TanStack Query v5, TanStack Table v8, Playwright

@@ -19,7 +19,7 @@ By contributing, you agree that your contributions will be licensed under the ap
 
 ### Prerequisites
 
-- Go 1.23+
+- Go 1.26+
 - Node.js 22+
 - pnpm 11+ (`npm i -g pnpm`)
 - Docker and Docker Compose
@@ -105,6 +105,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). Every commi
 | `auth` | Authentication module |
 | `org` | Organization module |
 | `catalog` | Catalog module |
+| `dependency` | Dependency parsing module |
 | `ingest` | Data ingestion pipeline |
 | `impact` | Impact analysis engine |
 | `search` | Search module |
@@ -139,6 +140,7 @@ ci: add Go lint step to PR workflow
 
 - Follow [Effective Go](https://go.dev/doc/effective_go) and the [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments).
 - Run `make lint` before submitting. We use `golangci-lint`.
+- Run `make vuln` to check for known vulnerabilities in Go dependencies.
 - Write table-driven tests where applicable.
 - No global state. Pass dependencies explicitly.
 - Error messages should be lowercase and not end with punctuation.
@@ -162,7 +164,7 @@ ci: add Go lint step to PR workflow
 ## Pull Request Process
 
 1. Fill in the PR template completely.
-2. Ensure all CI checks pass.
+2. Ensure all CI checks pass: Go lint + vet + govulncheck, frontend lint + typecheck, tests, coverage, dependency audit, and PR title validation (conventional commits).
 3. PRs require at least one approving review.
 4. Keep PRs focused — one feature or fix per PR.
 5. If the PR is large (400+ lines), consider splitting it.
@@ -194,6 +196,7 @@ make migrate-up    # Run database migrations
 make migrate-down  # Rollback last migration
 make build         # Build all binaries
 make build-cli     # Build CLI only
+make vuln          # Check Go deps for known vulnerabilities
 ```
 
 ## Questions?
