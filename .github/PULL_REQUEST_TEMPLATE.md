@@ -14,6 +14,7 @@
 - [ ] `docs` — Documentation
 - [ ] `test` — Tests
 - [ ] `chore` — Maintenance / tooling
+- [ ] `ci` — CI/CD changes
 - [ ] `perf` — Performance improvement
 
 ## How to Test
@@ -22,13 +23,21 @@
 
 1.
 
+## Screenshots / Recordings
+
+<!-- For UI changes: before/after screenshots or a short recording. Delete this section if not applicable. -->
+
+## Breaking Changes
+
+<!-- Does this PR break any existing functionality or API contract? If yes, describe the impact and migration steps. Delete this section if not applicable. -->
+
 ## Checklist
 
 - [ ] I have read the [Contributing Guide](../CONTRIBUTING.md)
 - [ ] My commits follow the [commit convention](../CONTRIBUTING.md#commit-convention)
 - [ ] I have added/updated tests where applicable
 - [ ] I have updated documentation where applicable
-- [ ] All CI checks pass
+- [ ] All CI checks pass (lint, typecheck, tests, coverage, vulnerability scan)
 
 ## Related Issues
 

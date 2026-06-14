@@ -6,6 +6,17 @@
 |---------|-----------|
 | latest  | Yes       |
 
+## Scope
+
+The following components are covered by this security policy:
+
+- **Atlas Server** — API server (`cmd/atlas-server/`)
+- **Atlas CLI** — command-line tool (`cmd/atlas/`)
+- **Atlas Web** — frontend application (`web/`)
+- **Migrations** — database schema (`migrations/`)
+
+Third-party dependencies are covered when the vulnerability is exploitable through Atlas.
+
 ## Reporting a Vulnerability
 
 **Do not open a public issue for security vulnerabilities.**
