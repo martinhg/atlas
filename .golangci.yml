@@ -9,3 +9,18 @@ linters:
     - revive
     - misspell
     - gocritic
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true
+        - name: unused-parameter
+          disabled: true
+    errcheck:
+      exclude-functions:
+        - encoding/json.(*Encoder).Encode
+        - (net/http.ResponseWriter).Write
+        - fmt.Fprintf
+        - fmt.Fprintln
