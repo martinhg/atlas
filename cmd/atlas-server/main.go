@@ -12,14 +12,33 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/google/uuid"
 
 	"github.com/nesbite/atlas/internal/auth"
 	"github.com/nesbite/atlas/internal/catalog"
+	"github.com/nesbite/atlas/internal/dependency"
 	"github.com/nesbite/atlas/internal/org"
 	"github.com/nesbite/atlas/internal/platform/config"
 	"github.com/nesbite/atlas/internal/platform/database"
 	"github.com/nesbite/atlas/migrations"
 )
+
+// orgStoreResolver adapts org.OrgStore to satisfy dependency.OrgResolver.
+// It resolves a slug to an org UUID using the org store.
+type orgStoreResolver struct {
+	store org.OrgStore
+}
+
+func (r *orgStoreResolver) GetOrgIDBySlug(ctx context.Context, slug string) (uuid.UUID, bool, error) {
+	o, err := r.store.GetOrgBySlug(ctx, slug)
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+	if o == nil {
+		return uuid.Nil, false, nil
+	}
+	return o.ID, true, nil
+}
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -58,9 +77,14 @@ func main() {
 	catalogStore := catalog.NewStore(pool)
 	catalogHandler := catalog.NewHandler(catalogStore)
 
+	depStore := dependency.NewStore(pool)
+	depService := dependency.NewService(depStore)
+	depHandler := dependency.NewHandler(depStore, &orgStoreResolver{store: orgStore})
+
 	orgHandler := org.NewHandler(
 		orgStore,
 		catalogStore,
+		depService,
 		cfg.GitHubAppID,
 		cfg.GitHubAppPrivateKey,
 		cfg.GitHubWebhookSecret,
@@ -100,6 +124,8 @@ func main() {
 			r.Get("/auth/me", authHandler.HandleMe)
 			r.Route("/orgs", orgHandler.Routes())
 			r.Get("/orgs/{orgID}/repos", catalogHandler.HandleListRepos)
+			r.Get("/orgs/{slug}/dependencies", depHandler.HandleListDependencies)
+			r.Get("/orgs/{slug}/dependencies/{ecosystem}/*", depHandler.HandleGetDependency)
 		})
 	})
 

@@ -16,15 +16,17 @@ import (
 type Handler struct {
 	orgStore      OrgStore
 	catalogStore  catalog.RepoStore
+	depSyncer     DepSyncer
 	ghAppID       int64
 	ghPrivateKey  []byte
 	webhookSecret string
 }
 
-func NewHandler(orgStore OrgStore, catalogStore catalog.RepoStore, ghAppID int64, ghPrivateKey []byte, webhookSecret string) *Handler {
+func NewHandler(orgStore OrgStore, catalogStore catalog.RepoStore, depSyncer DepSyncer, ghAppID int64, ghPrivateKey []byte, webhookSecret string) *Handler {
 	return &Handler{
 		orgStore:      orgStore,
 		catalogStore:  catalogStore,
+		depSyncer:     depSyncer,
 		ghAppID:       ghAppID,
 		ghPrivateKey:  ghPrivateKey,
 		webhookSecret: webhookSecret,
@@ -135,7 +137,7 @@ func (h *Handler) HandleConnect(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			slog.Error("failed to create installation client for sync", "error", err)
 		} else {
-			go syncRepos(installClient, h.orgStore, h.catalogStore, org.ID, org.Slug)
+			go syncRepos(installClient, h.orgStore, h.catalogStore, h.depSyncer, org.ID, org.Slug)
 		}
 	}
 
@@ -203,7 +205,7 @@ func (h *Handler) HandleGitHubWebhook(w http.ResponseWriter, r *http.Request) {
 		if h.catalogStore != nil {
 			installClient, err := ghplatform.NewInstallationClient(h.ghAppID, event.Installation.ID, h.ghPrivateKey)
 			if err == nil {
-				go syncRepos(installClient, h.orgStore, h.catalogStore, existing.ID, existing.Slug)
+				go syncRepos(installClient, h.orgStore, h.catalogStore, h.depSyncer, existing.ID, existing.Slug)
 			}
 		}
 		w.WriteHeader(http.StatusOK)

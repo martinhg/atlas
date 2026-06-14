@@ -10,7 +10,15 @@ import (
 	"github.com/nesbite/atlas/internal/catalog"
 )
 
-func syncRepos(ghClient *gogithub.Client, orgStore OrgStore, catalogStore catalog.RepoStore, orgID uuid.UUID, orgSlug string) {
+// DepSyncer is a local interface that the org package uses to trigger
+// dependency sync for a repository. dependency.Service satisfies it.
+// Using a local interface keeps the org package decoupled from the
+// dependency package (Go structural typing).
+type DepSyncer interface {
+	SyncRepoDeps(ctx context.Context, ghClient *gogithub.Client, repoID uuid.UUID, owner, repo, branch string) error
+}
+
+func syncRepos(ghClient *gogithub.Client, orgStore OrgStore, catalogStore catalog.RepoStore, depSyncer DepSyncer, orgID uuid.UUID, orgSlug string) {
 	ctx := context.Background()
 
 	repos, _, err := ghClient.Repositories.ListByOrg(ctx, orgSlug, &gogithub.RepositoryListByOrgOptions{
@@ -42,9 +50,18 @@ func syncRepos(ghClient *gogithub.Client, orgStore OrgStore, catalogStore catalo
 			repo.Language = r.Language
 		}
 
-		if _, err := catalogStore.UpsertRepository(ctx, repo); err != nil {
+		upserted, err := catalogStore.UpsertRepository(ctx, repo)
+		if err != nil {
 			slog.Error("sync: failed to upsert repository", "repo", r.GetFullName(), "error", err)
 			syncErrors++
+			continue
+		}
+
+		if depSyncer != nil && upserted != nil {
+			if err := depSyncer.SyncRepoDeps(ctx, ghClient, upserted.ID, orgSlug, r.GetName(), r.GetDefaultBranch()); err != nil {
+				slog.Error("sync: dep sync failed for repo", "repo", r.GetFullName(), "error", err)
+				// error isolation — continue processing remaining repos
+			}
 		}
 	}
 
