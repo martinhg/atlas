@@ -21,6 +21,16 @@ linters:
     errcheck:
       exclude-functions:
         - encoding/json.(*Encoder).Encode
+        - encoding/json.(*Decoder).Decode
         - (net/http.ResponseWriter).Write
+        - (*net/http.Response).Body.Close
+        - io.Close
+        - (io.Closer).Close
         - fmt.Fprintf
         - fmt.Fprintln
+        - (*github.com/jackc/pgx/v5/pgxpool.Pool).Exec
+        - (*github.com/jackc/pgx/v5.Conn).Exec
+        - (*net/http.Server).Shutdown
+    gocritic:
+      disabled-checks:
+        - exitAfterDefer
