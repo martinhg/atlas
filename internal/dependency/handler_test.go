@@ -374,3 +374,82 @@ func TestHandleGetDependency_scoped_npm_package_200(t *testing.T) {
 		t.Errorf("repos len = %d, want 1", len(resp.Repos))
 	}
 }
+
+// ---------------------------------------------------------------------------
+// PR1.9: New handler tests for ?q= param parsing.
+// These fail until PR1.10 updates the handler to parse and pass q.
+// ---------------------------------------------------------------------------
+
+// captureDepStore extends mockDepStore to capture what was passed to ListByOrg.
+type captureDepStore struct {
+	mockDepStore
+	capturedQ string
+}
+
+func (c *captureDepStore) ListByOrg(ctx context.Context, orgID uuid.UUID, q string, page, perPage int) ([]DependencyWithCount, int, error) {
+	c.capturedQ = q
+	return c.listResult, c.listTotal, c.listErr
+}
+
+// TestHandleListDependencies_q_param_passed_to_store verifies ?q= is parsed and forwarded.
+func TestHandleListDependencies_q_param_passed_to_store(t *testing.T) {
+	orgID := uuid.New()
+	orgResolver := &mockOrgResolver{orgID: orgID, found: true}
+	store := &captureDepStore{}
+	store.listResult = []DependencyWithCount{}
+	h := NewHandler(store, orgResolver)
+	r := newTestHandlerRouter(h)
+
+	req := httptest.NewRequest(http.MethodGet, "/orgs/acme/dependencies?q=lodash", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d — body: %s", w.Code, w.Body.String())
+	}
+	if store.capturedQ != "lodash" {
+		t.Errorf("capturedQ = %q, want %q", store.capturedQ, "lodash")
+	}
+}
+
+// TestHandleListDependencies_empty_q_param passes "" to store.
+func TestHandleListDependencies_empty_q_param(t *testing.T) {
+	orgID := uuid.New()
+	orgResolver := &mockOrgResolver{orgID: orgID, found: true}
+	store := &captureDepStore{}
+	store.listResult = []DependencyWithCount{}
+	h := NewHandler(store, orgResolver)
+	r := newTestHandlerRouter(h)
+
+	req := httptest.NewRequest(http.MethodGet, "/orgs/acme/dependencies?q=", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d — body: %s", w.Code, w.Body.String())
+	}
+	if store.capturedQ != "" {
+		t.Errorf("capturedQ = %q, want empty string", store.capturedQ)
+	}
+}
+
+// TestHandleListDependencies_no_q_param defaults q to "".
+func TestHandleListDependencies_no_q_param(t *testing.T) {
+	orgID := uuid.New()
+	orgResolver := &mockOrgResolver{orgID: orgID, found: true}
+	store := &captureDepStore{}
+	store.listResult = []DependencyWithCount{}
+	h := NewHandler(store, orgResolver)
+	r := newTestHandlerRouter(h)
+
+	req := httptest.NewRequest(http.MethodGet, "/orgs/acme/dependencies", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d — body: %s", w.Code, w.Body.String())
+	}
+	if store.capturedQ != "" {
+		t.Errorf("capturedQ = %q, want empty string", store.capturedQ)
+	}
+}

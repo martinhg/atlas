@@ -9,7 +9,7 @@ import (
 
 type RepoStore interface {
 	UpsertRepository(ctx context.Context, repo *Repository) (*Repository, error)
-	GetRepositoriesByOrgID(ctx context.Context, orgID uuid.UUID) ([]Repository, error)
+	GetRepositoriesByOrgID(ctx context.Context, orgID uuid.UUID, q string, page, perPage int) ([]Repository, int, error)
 }
 
 type Store struct {
@@ -45,24 +45,59 @@ func (s *Store) UpsertRepository(ctx context.Context, repo *Repository) (*Reposi
 	return &r, nil
 }
 
-func (s *Store) GetRepositoriesByOrgID(ctx context.Context, orgID uuid.UUID) ([]Repository, error) {
+// GetRepositoriesByOrgID returns a filtered, paginated list of repositories
+// for the given org. q is applied as an ILIKE filter across name, full_name,
+// and COALESCE(description, ''). page and perPage are 1-based.
+// Returns the matching page of repos, the total count across all pages, and any error.
+func (s *Store) GetRepositoriesByOrgID(ctx context.Context, orgID uuid.UUID, q string, page, perPage int) ([]Repository, int, error) {
+	// Clamp pagination parameters to safe values.
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 20
+	}
+	if perPage > 100 {
+		perPage = 100
+	}
+
+	offset := (page - 1) * perPage
+
 	rows, err := s.db.Query(ctx, `
-		SELECT id, org_id, github_id, name, full_name, description, default_branch, language, private, fork, stars, last_synced_at, created_at, updated_at
-		FROM repositories WHERE org_id = $1
+		SELECT id, org_id, github_id, name, full_name, description, default_branch,
+		       language, private, fork, stars, last_synced_at, created_at, updated_at,
+		       COUNT(*) OVER() AS total
+		FROM repositories
+		WHERE org_id = $1
+		  AND ($2 = '' OR (
+		    name ILIKE '%' || $2 || '%'
+		    OR full_name ILIKE '%' || $2 || '%'
+		    OR COALESCE(description, '') ILIKE '%' || $2 || '%'
+		  ))
 		ORDER BY full_name
-	`, orgID)
+		LIMIT $3 OFFSET $4
+	`, orgID, q, perPage, offset)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
+	var total int
 	repos := make([]Repository, 0)
 	for rows.Next() {
 		var r Repository
-		if err := rows.Scan(&r.ID, &r.OrgID, &r.GitHubID, &r.Name, &r.FullName, &r.Description, &r.DefaultBranch, &r.Language, &r.Private, &r.Fork, &r.Stars, &r.LastSyncedAt, &r.CreatedAt, &r.UpdatedAt); err != nil {
-			return nil, err
+		if err := rows.Scan(
+			&r.ID, &r.OrgID, &r.GitHubID, &r.Name, &r.FullName, &r.Description,
+			&r.DefaultBranch, &r.Language, &r.Private, &r.Fork, &r.Stars,
+			&r.LastSyncedAt, &r.CreatedAt, &r.UpdatedAt, &total,
+		); err != nil {
+			return nil, 0, err
 		}
 		repos = append(repos, r)
 	}
-	return repos, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	return repos, total, nil
 }

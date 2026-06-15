@@ -85,7 +85,10 @@ func (h *Handler) HandleListDependencies(w http.ResponseWriter, r *http.Request)
 		perPage = v
 	}
 
-	deps, total, err := h.store.ListByOrg(r.Context(), orgID, page, perPage)
+	// Parse search query — empty string means no filter.
+	q := r.URL.Query().Get("q")
+
+	deps, total, err := h.store.ListByOrg(r.Context(), orgID, q, page, perPage)
 	if err != nil {
 		slog.Error("dependency handler: failed to list dependencies", "org_id", orgID, "error", err)
 		jsonError(w, "internal error", http.StatusInternalServerError)
