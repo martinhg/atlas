@@ -86,7 +86,7 @@ func TestSyncRepos_success(t *testing.T) {
 	orgS := &mockOrgStore{}
 	catS := &mockCatalogStore{}
 
-	syncRepos(client, orgS, catS, nil, orgID, "org")
+	syncRepos(client, orgS, catS, nil, nil, orgID, "org")
 
 	if len(catS.upsertCalls) != 3 {
 		t.Errorf("expected 3 UpsertRepository calls, got %d", len(catS.upsertCalls))
@@ -106,7 +106,7 @@ func TestSyncRepos_github_error(t *testing.T) {
 	orgS := &mockOrgStore{}
 	catS := &mockCatalogStore{}
 
-	syncRepos(client, orgS, catS, nil, uuid.New(), "org")
+	syncRepos(client, orgS, catS, nil, nil, uuid.New(), "org")
 
 	if len(catS.upsertCalls) != 0 {
 		t.Errorf("expected 0 UpsertRepository calls, got %d", len(catS.upsertCalls))
@@ -133,7 +133,7 @@ func TestSyncRepos_upsert_error(t *testing.T) {
 	orgS := &mockOrgStore{}
 	catS := &mockCatalogStore{upsertErr: fmt.Errorf("db connection lost")}
 
-	syncRepos(client, orgS, catS, nil, uuid.New(), "org")
+	syncRepos(client, orgS, catS, nil, nil, uuid.New(), "org")
 
 	if len(catS.upsertCalls) != 2 {
 		t.Errorf("expected 2 UpsertRepository calls (continues on error), got %d", len(catS.upsertCalls))
@@ -189,7 +189,7 @@ func TestSyncRepos_depSyncer_called_after_upsert(t *testing.T) {
 	catS := &mockCatalogStore{}
 	depS := &mockDepSyncer{}
 
-	syncRepos(client, orgS, catS, depS, orgID, "org")
+	syncRepos(client, orgS, catS, depS, nil, orgID, "org")
 
 	if len(depS.syncCalls) != 2 {
 		t.Errorf("expected 2 SyncRepoDeps calls, got %d", len(depS.syncCalls))
@@ -216,7 +216,7 @@ func TestSyncRepos_depSyncer_nil_guard(t *testing.T) {
 	catS := &mockCatalogStore{}
 
 	// Must not panic.
-	syncRepos(client, orgS, catS, nil, uuid.New(), "org")
+	syncRepos(client, orgS, catS, nil, nil, uuid.New(), "org")
 
 	if len(catS.upsertCalls) != 1 {
 		t.Errorf("expected 1 UpsertRepository call, got %d", len(catS.upsertCalls))
@@ -249,7 +249,7 @@ func TestSyncRepos_depSyncer_error_isolation(t *testing.T) {
 		},
 	}
 
-	syncRepos(client, orgS, catS, depS, uuid.New(), "org")
+	syncRepos(client, orgS, catS, depS, nil, uuid.New(), "org")
 
 	// All three catalog upserts must succeed regardless of dep sync error.
 	if len(catS.upsertCalls) != 3 {
@@ -259,5 +259,120 @@ func TestSyncRepos_depSyncer_error_isolation(t *testing.T) {
 	// All three dep sync calls must have been attempted.
 	if len(depS.syncCalls) != 3 {
 		t.Errorf("expected 3 SyncRepoDeps calls (error isolation), got %d", len(depS.syncCalls))
+	}
+}
+
+// mockOwnershipSyncer is a test double for the OwnershipSyncer interface in the org package.
+type mockOwnershipSyncer struct {
+	syncCalls  []ownershipSyncCall
+	errForRepo map[string]error // keyed by repo name
+}
+
+type ownershipSyncCall struct {
+	owner string
+	repo  string
+}
+
+func (m *mockOwnershipSyncer) SyncRepoOwnership(_ context.Context, _ *gogithub.Client, _ uuid.UUID, owner, repo string) error {
+	m.syncCalls = append(m.syncCalls, ownershipSyncCall{owner: owner, repo: repo})
+	if m.errForRepo != nil {
+		if err, ok := m.errForRepo[repo]; ok {
+			return err
+		}
+	}
+	return nil
+}
+
+// TestSyncRepos_ownershipSyncer_calledPerRepo verifies that ownershipSyncer.SyncRepoOwnership
+// is called once per repo after a successful catalog upsert.
+func TestSyncRepos_ownershipSyncer_calledPerRepo(t *testing.T) {
+	name1, name2 := "repo-1", "repo-2"
+	full1, full2 := "org/repo-1", "org/repo-2"
+	branch := "main"
+	repos := []*gogithub.Repository{
+		{ID: ptr(int64(1)), Name: &name1, FullName: &full1, DefaultBranch: &branch},
+		{ID: ptr(int64(2)), Name: &name2, FullName: &full2, DefaultBranch: &branch},
+	}
+
+	srv := newMockGitHubServer(repos, 0)
+	defer srv.Close()
+
+	client := gogithub.NewClient(nil)
+	client.BaseURL, _ = client.BaseURL.Parse(srv.URL + "/")
+
+	orgID := uuid.New()
+	orgS := &mockOrgStore{}
+	catS := &mockCatalogStore{}
+	ownerS := &mockOwnershipSyncer{}
+
+	syncRepos(client, orgS, catS, nil, ownerS, orgID, "org")
+
+	if len(ownerS.syncCalls) != 2 {
+		t.Errorf("expected 2 SyncRepoOwnership calls, got %d", len(ownerS.syncCalls))
+	}
+}
+
+// TestSyncRepos_ownershipSyncer_nilGuard verifies that passing nil as ownershipSyncer
+// does not panic and sync completes normally.
+func TestSyncRepos_ownershipSyncer_nilGuard(t *testing.T) {
+	name1 := "repo-1"
+	full1 := "org/repo-1"
+	branch := "main"
+	repos := []*gogithub.Repository{
+		{ID: ptr(int64(1)), Name: &name1, FullName: &full1, DefaultBranch: &branch},
+	}
+
+	srv := newMockGitHubServer(repos, 0)
+	defer srv.Close()
+
+	client := gogithub.NewClient(nil)
+	client.BaseURL, _ = client.BaseURL.Parse(srv.URL + "/")
+
+	orgS := &mockOrgStore{}
+	catS := &mockCatalogStore{}
+
+	// Must not panic with nil ownershipSyncer.
+	syncRepos(client, orgS, catS, nil, nil, uuid.New(), "org")
+
+	if len(catS.upsertCalls) != 1 {
+		t.Errorf("expected 1 UpsertRepository call, got %d", len(catS.upsertCalls))
+	}
+}
+
+// TestSyncRepos_ownershipSyncer_errorIsolation verifies that if ownership sync
+// fails for one repo, the remaining repos are still processed.
+func TestSyncRepos_ownershipSyncer_errorIsolation(t *testing.T) {
+	name1, name2, name3 := "repo-1", "repo-2", "repo-3"
+	full1, full2, full3 := "org/repo-1", "org/repo-2", "org/repo-3"
+	branch := "main"
+	repos := []*gogithub.Repository{
+		{ID: ptr(int64(1)), Name: &name1, FullName: &full1, DefaultBranch: &branch},
+		{ID: ptr(int64(2)), Name: &name2, FullName: &full2, DefaultBranch: &branch},
+		{ID: ptr(int64(3)), Name: &name3, FullName: &full3, DefaultBranch: &branch},
+	}
+
+	srv := newMockGitHubServer(repos, 0)
+	defer srv.Close()
+
+	client := gogithub.NewClient(nil)
+	client.BaseURL, _ = client.BaseURL.Parse(srv.URL + "/")
+
+	orgS := &mockOrgStore{}
+	catS := &mockCatalogStore{}
+	ownerS := &mockOwnershipSyncer{
+		errForRepo: map[string]error{
+			"repo-2": fmt.Errorf("ownership sync failed for repo-2"),
+		},
+	}
+
+	syncRepos(client, orgS, catS, nil, ownerS, uuid.New(), "org")
+
+	// All three repos should have had ownership sync attempted.
+	if len(ownerS.syncCalls) != 3 {
+		t.Errorf("expected 3 SyncRepoOwnership calls (error isolation), got %d", len(ownerS.syncCalls))
+	}
+	// All three catalog upserts must succeed.
+	if len(catS.upsertCalls) != 3 {
+		t.Errorf("expected 3 UpsertRepository calls, got %d", len(catS.upsertCalls))
 	}
 }
