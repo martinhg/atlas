@@ -60,7 +60,9 @@ All API routes live under `/api/v1` and are registered in `cmd/atlas-server/main
 /api/v1/auth/me                 GET   — Current user (protected)
 /api/v1/webhooks/github         POST  — GitHub App webhooks
 /api/v1/orgs                    (group) — Org CRUD + connect
-/api/v1/orgs/{slug}/repos       GET   — List repos by org slug
+/api/v1/orgs/{slug}/repos                GET  — List repos by org slug
+/api/v1/orgs/{slug}/repos/{name}         GET  — Repository detail
+/api/v1/orgs/{slug}/repos/{name}/dependencies GET — Dependencies for a repo
 /api/v1/orgs/{slug}/dependencies         GET  — List dependencies
 /api/v1/orgs/{slug}/dependencies/{eco}/* GET  — Dependency detail
 /api/v1/orgs/{slug}/ownership            GET  — List ownership (paginated)
@@ -116,7 +118,7 @@ web/src/
 ├── components/          Shared components (DashboardPage, LoginPage, AuthGuard)
 │   └── ui/              shadcn primitives (Button, Card, Avatar, Input)
 ├── features/            Feature modules (catalog, dependencies, ownership)
-│   ├── catalog/         RepoListPage, RepoTable, useRepos
+│   ├── catalog/         RepoListPage, RepoDetailPage, RepoTable, useRepos, useRepoDetail, useRepoDeps
 │   ├── dependencies/    DependencyListPage, DependencyDetailPage, hooks, tables
 │   └── ownership/       OwnershipListPage, OwnershipDetailPage, hooks, tables with type badges
 ├── hooks/               Shared hooks (useOrgs)
@@ -137,7 +139,7 @@ web/src/
 ### Navigation Graph
 
 ```
-Login → Dashboard → Repositories (per org)
+Login → Dashboard → Repositories (per org) → Repository Detail (deps + ownership)
                   → Dependencies (per org) → Dependency Detail
                   → Ownership (per org)    → Ownership Detail (per repo)
 ```
