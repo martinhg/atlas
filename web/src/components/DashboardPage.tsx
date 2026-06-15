@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { useOrgs } from "@/hooks/useOrgs"
 
-const GITHUB_APP_SLUG = import.meta.env.VITE_GITHUB_APP_SLUG || "atlas-dev"
+const GITHUB_APP_SLUG = import.meta.env.VITE_GITHUB_APP_SLUG || "nesbite-atlas-dev"
 
 interface Props {
   user: User
