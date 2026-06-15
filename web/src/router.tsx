@@ -6,6 +6,8 @@ import { GitHubCallbackPage } from "@/pages/GitHubCallbackPage";
 import { RepoListPage } from "@/features/catalog/RepoListPage";
 import { DependencyListPage } from "@/features/dependencies/DependencyListPage";
 import { DependencyDetailPage } from "@/features/dependencies/DependencyDetailPage";
+import { OwnershipListPage } from "@/features/ownership/OwnershipListPage";
+import { OwnershipDetailPage } from "@/features/ownership/OwnershipDetailPage";
 
 export const router = createBrowserRouter([
   {
@@ -45,6 +47,22 @@ export const router = createBrowserRouter([
     element: (
       <AuthGuard>
         {(_user, onLogout) => <DependencyDetailPage onLogout={onLogout} />}
+      </AuthGuard>
+    ),
+  },
+  {
+    path: "/orgs/:slug/ownership",
+    element: (
+      <AuthGuard>
+        {(_user, onLogout) => <OwnershipListPage onLogout={onLogout} />}
+      </AuthGuard>
+    ),
+  },
+  {
+    path: "/orgs/:slug/ownership/:repo",
+    element: (
+      <AuthGuard>
+        {(_user, onLogout) => <OwnershipDetailPage onLogout={onLogout} />}
       </AuthGuard>
     ),
   },

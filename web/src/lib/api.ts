@@ -97,3 +97,54 @@ export async function fetchDependencyDetail(
   const data = await res.json();
   return data.repos ?? [];
 }
+
+// --- Ownership types ---
+
+export interface RepoOwnerSummary {
+  repo_name: string;
+  owner_count: number;
+  team_count: number;
+  teams: string[];
+}
+
+export interface OwnerRule {
+  pattern: string;
+  owner: string;
+  owner_type: string;
+  line_number?: number;
+}
+
+export interface OwnershipListResponse {
+  data: RepoOwnerSummary[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export interface OwnershipDetailResponse {
+  repo: string;
+  rules: OwnerRule[];
+}
+
+// --- Ownership fetch functions ---
+
+export async function fetchOwnership(
+  slug: string,
+  page = 1,
+  perPage = 50,
+): Promise<OwnershipListResponse> {
+  const res = await apiFetch(
+    `/api/v1/orgs/${slug}/ownership?page=${page}&per_page=${perPage}`,
+  );
+  if (!res.ok) throw new Error("Failed to fetch ownership");
+  return res.json();
+}
+
+export async function fetchOwnershipDetail(
+  slug: string,
+  repo: string,
+): Promise<OwnershipDetailResponse> {
+  const res = await apiFetch(`/api/v1/orgs/${slug}/ownership/${repo}`);
+  if (!res.ok) throw new Error("Failed to fetch ownership detail");
+  return res.json();
+}
