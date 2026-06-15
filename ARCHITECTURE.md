@@ -30,6 +30,7 @@ Each domain lives in its own package under `internal/` and follows the same stru
 | `org` | Organization CRUD, GitHub App installation, repository sync orchestration |
 | `catalog` | Repository storage and listing |
 | `dependency` | Dependency parsing (npm), storage, and querying |
+| `ownership` | CODEOWNERS parsing, ownership storage, and querying |
 | `platform/config` | Environment variable loading via godotenv |
 | `platform/database` | pgxpool connection, custom migration runner with advisory locking |
 | `platform/github` | GitHub App client factory (JWT → installation token) |
@@ -61,6 +62,8 @@ All API routes live under `/api/v1` and are registered in `cmd/atlas-server/main
 /api/v1/orgs/{slug}/repos       GET   — List repos by org slug
 /api/v1/orgs/{slug}/dependencies         GET  — List dependencies
 /api/v1/orgs/{slug}/dependencies/{eco}/* GET  — Dependency detail
+/api/v1/orgs/{slug}/ownership            GET  — List ownership (paginated)
+/api/v1/orgs/{slug}/ownership/{repo}     GET  — Ownership detail for a repo
 ```
 
 All org-scoped routes use `{slug}` (human-readable) as the org identifier. Handlers resolve slug → UUID internally via `OrgResolver`.
@@ -82,8 +85,9 @@ When a GitHub App installation event is received (or a user connects an org):
 1. `org.Handler` receives the webhook / connect request
 2. Spawns a goroutine calling `syncRepos()`
 3. `syncRepos` fetches all repos from GitHub API, upserts each via `catalog.RepoStore`
-4. For each repo, if a `DepSyncer` is injected, it triggers dependency sync
+4. For each repo, if a `DepSyncer` is injected, it triggers dependency sync; if an `OwnershipSyncer` is injected, it triggers ownership sync
 5. `dependency.Service.SyncRepoDependencies` discovers `package.json` files via GitHub tree API, fetches content, parses, and batch-upserts dependencies
+6. `ownership.Service.SyncRepoOwnership` tries 3 CODEOWNERS paths (CODEOWNERS, .github/CODEOWNERS, docs/CODEOWNERS), parses, and batch-upserts ownership rows; errors are isolated per repo
 
 ### Migrations
 
@@ -94,6 +98,7 @@ SQL migrations live in `migrations/` and are auto-embedded via `embed.FS`. They 
 000002_create_organizations.up.sql
 000003_create_repositories.up.sql
 000004_create_dependencies.up.sql
+000005_create_repo_owners.up.sql
 ```
 
 ## Frontend
@@ -108,9 +113,10 @@ React 19, Vite 8, TypeScript, Tailwind CSS v4, shadcn/ui, TanStack Query v5.
 web/src/
 ├── components/          Shared components (DashboardPage, LoginPage, AuthGuard)
 │   └── ui/              shadcn primitives (Button, Card, Avatar)
-├── features/            Feature modules (catalog, dependencies)
+├── features/            Feature modules (catalog, dependencies, ownership)
 │   ├── catalog/         RepoListPage, RepoTable, useRepos
-│   └── dependencies/    DependencyListPage, DependencyDetailPage, hooks, tables
+│   ├── dependencies/    DependencyListPage, DependencyDetailPage, hooks, tables
+│   └── ownership/       OwnershipListPage, OwnershipDetailPage, hooks, tables with type badges
 ├── hooks/               Shared hooks (useOrgs)
 ├── lib/                 Utilities (api.ts, auth.ts, query-client.ts)
 ├── pages/               Standalone pages (GitHubCallbackPage)
@@ -131,9 +137,10 @@ web/src/
 ```
 Login → Dashboard → Repositories (per org)
                   → Dependencies (per org) → Dependency Detail
+                  → Ownership (per org)    → Ownership Detail (per repo)
 ```
 
-Cross-links exist between Repositories and Dependencies pages via breadcrumb navigation.
+Cross-links exist between Dashboard, Repositories, Dependencies, and Ownership pages via breadcrumb navigation.
 
 ## Data Model
 
@@ -170,6 +177,15 @@ repo_dependencies
   ├── dependency_id → dependencies.id
   ├── dep_type (direct, dev, peer, optional)
   ├── source_file
+  └── created_at, updated_at
+
+repo_owners
+  ├── repo_id → repositories.id
+  ├── pattern (CODEOWNERS glob pattern)
+  ├── owner (team, username, or email)
+  ├── owner_type (team, user, email)
+  ├── source (codeowners)
+  ├── line_number
   └── created_at, updated_at
 ```
 

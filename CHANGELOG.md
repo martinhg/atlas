@@ -9,6 +9,13 @@ and this project adheres to [Conventional Commits](https://www.conventionalcommi
 
 ### Added
 
+- Ownership detection (Phase 1): CODEOWNERS parser with BOM/CRLF handling and 20 test cases (#22)
+- Ownership store with sync, paginated list, and detail queries (#22)
+- Ownership service with 3-path CODEOWNERS fetch and error isolation (#23)
+- Ownership handler with list and detail API endpoints (#23)
+- Ownership sync integration via OwnershipSyncer in org.syncRepos (#23)
+- Ownership frontend: list page, detail page, table components with type badges (#24)
+- Navigation cross-links: Dashboard, Repos, and Dependencies now link to Ownership (#24)
 - Dependency parsing (Phase 1): data layer with npm parser and batched upserts (#14)
 - Dependency service, handler, sync integration, and API routes (#17)
 - Dependency list and detail pages with TanStack Query hooks (#18)
