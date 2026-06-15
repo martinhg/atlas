@@ -120,6 +120,8 @@ internal/
   catalog/                 Repository store and listing
   dependency/              Dependency parsing, storage, and querying
     parser/                npm package.json parser
+  ownership/               CODEOWNERS parsing + ownership detection
+    parser/                CODEOWNERS file parser
   ingest/parsers/          CLI parsers (Apache 2.0)
   org/                     Organization management + sync orchestration
   platform/
@@ -128,7 +130,7 @@ internal/
     github/                GitHub App client factory
 migrations/                SQL migrations (auto-embedded, auto-run on startup)
 web/                       React SPA (Vite + Tailwind v4 + shadcn/ui)
-  src/features/            Feature modules (catalog, dependencies)
+  src/features/            Feature modules (catalog, dependencies, ownership)
   src/components/          Shared components + shadcn primitives
   src/lib/                 API client, auth, utilities
 deploy/                    Docker + Compose
@@ -143,7 +145,7 @@ For a deeper dive into how these pieces fit together, see [ARCHITECTURE.md](ARCH
 - [x] **Epic 1** — Authentication (GitHub OAuth + JWT)
 - [x] **Epic 2** — Repository Discovery & Sync
 - [x] **Epic 3** — Dependency Parsing (npm, Phase 1)
-- [ ] **Epic 4** — Ownership Detection
+- [x] **Epic 4** — Ownership Detection
 - [ ] **Epic 5** — Search
 - [ ] **Epic 6** — Dependency Graph Visualization
 - [ ] **Epic 7** — Impact Analysis
