@@ -19,7 +19,7 @@ import (
 )
 
 func newTestHandler(orgS OrgStore) *Handler {
-	return NewHandler(orgS, nil, 12345, []byte("fake-key"), "test-webhook-secret")
+	return NewHandler(orgS, nil, nil, 12345, []byte("fake-key"), "test-webhook-secret")
 }
 
 func reqWithUserID(r *http.Request, userID uuid.UUID) *http.Request {
