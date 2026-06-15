@@ -18,7 +18,14 @@ type DepSyncer interface {
 	SyncRepoDeps(ctx context.Context, ghClient *gogithub.Client, repoID uuid.UUID, owner, repo, branch string) error
 }
 
-func syncRepos(ghClient *gogithub.Client, orgStore OrgStore, catalogStore catalog.RepoStore, depSyncer DepSyncer, orgID uuid.UUID, orgSlug string) {
+// OwnershipSyncer is a local interface for ownership sync. ownership.Service
+// satisfies it. Using a local interface keeps the org package decoupled from
+// the ownership package (Go structural typing).
+type OwnershipSyncer interface {
+	SyncRepoOwnership(ctx context.Context, ghClient *gogithub.Client, repoID uuid.UUID, owner, repo string) error
+}
+
+func syncRepos(ghClient *gogithub.Client, orgStore OrgStore, catalogStore catalog.RepoStore, depSyncer DepSyncer, ownershipSyncer OwnershipSyncer, orgID uuid.UUID, orgSlug string) {
 	ctx := context.Background()
 
 	repos, _, err := ghClient.Repositories.ListByOrg(ctx, orgSlug, &gogithub.RepositoryListByOrgOptions{
@@ -60,6 +67,13 @@ func syncRepos(ghClient *gogithub.Client, orgStore OrgStore, catalogStore catalo
 		if depSyncer != nil && upserted != nil {
 			if err := depSyncer.SyncRepoDeps(ctx, ghClient, upserted.ID, orgSlug, r.GetName(), r.GetDefaultBranch()); err != nil {
 				slog.Error("sync: dep sync failed for repo", "repo", r.GetFullName(), "error", err)
+				// error isolation — continue processing remaining repos
+			}
+		}
+
+		if ownershipSyncer != nil && upserted != nil {
+			if err := ownershipSyncer.SyncRepoOwnership(ctx, ghClient, upserted.ID, orgSlug, r.GetName()); err != nil {
+				slog.Error("sync: ownership sync failed", "repo", r.GetFullName(), "error", err)
 				// error isolation — continue processing remaining repos
 			}
 		}

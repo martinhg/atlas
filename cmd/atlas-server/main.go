@@ -18,6 +18,7 @@ import (
 	"github.com/nesbite/atlas/internal/catalog"
 	"github.com/nesbite/atlas/internal/dependency"
 	"github.com/nesbite/atlas/internal/org"
+	"github.com/nesbite/atlas/internal/ownership"
 	"github.com/nesbite/atlas/internal/platform/config"
 	"github.com/nesbite/atlas/internal/platform/database"
 	"github.com/nesbite/atlas/migrations"
@@ -81,10 +82,15 @@ func main() {
 	depService := dependency.NewService(depStore)
 	depHandler := dependency.NewHandler(depStore, &orgStoreResolver{store: orgStore})
 
+	ownershipStore := ownership.NewStore(pool)
+	ownershipService := ownership.NewService(ownershipStore)
+	ownershipHandler := ownership.NewHandler(ownershipStore, &orgStoreResolver{store: orgStore})
+
 	orgHandler := org.NewHandler(
 		orgStore,
 		catalogStore,
 		depService,
+		ownershipService,
 		cfg.GitHubAppID,
 		cfg.GitHubAppPrivateKey,
 		cfg.GitHubWebhookSecret,
@@ -126,6 +132,8 @@ func main() {
 			r.Get("/orgs/{slug}/repos", catalogHandler.HandleListRepos)
 			r.Get("/orgs/{slug}/dependencies", depHandler.HandleListDependencies)
 			r.Get("/orgs/{slug}/dependencies/{ecosystem}/*", depHandler.HandleGetDependency)
+			r.Get("/orgs/{slug}/ownership", ownershipHandler.HandleListOwnership)
+			r.Get("/orgs/{slug}/ownership/{repo}", ownershipHandler.HandleGetRepoOwnership)
 		})
 	})
 
