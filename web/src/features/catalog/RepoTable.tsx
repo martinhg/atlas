@@ -1,10 +1,12 @@
+import { Link } from "react-router-dom";
 import type { Repository } from "@/lib/api";
 
 interface RepoTableProps {
   repos: Repository[];
+  slug: string;
 }
 
-export function RepoTable({ repos }: RepoTableProps) {
+export function RepoTable({ repos, slug }: RepoTableProps) {
   if (repos.length === 0) {
     return (
       <p className="text-zinc-500 text-sm py-8 text-center">
@@ -29,7 +31,12 @@ export function RepoTable({ repos }: RepoTableProps) {
             <tr key={repo.id} className="border-b border-zinc-800/50 last:border-0 hover:bg-zinc-900/30">
               <td className="px-4 py-3">
                 <div>
-                  <p className="font-medium text-zinc-100">{repo.name}</p>
+                  <Link
+                    to={`/orgs/${slug}/repos/${repo.name}`}
+                    className="font-medium text-zinc-100 hover:text-zinc-300 hover:underline"
+                  >
+                    {repo.name}
+                  </Link>
                   {repo.description && (
                     <p className="text-zinc-500 text-xs mt-0.5 line-clamp-1">{repo.description}</p>
                   )}

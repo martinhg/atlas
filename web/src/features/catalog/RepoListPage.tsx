@@ -97,7 +97,7 @@ export function RepoListPage({ onLogout }: RepoListPageProps) {
             <p className="text-red-400">Failed to load repositories.</p>
           )}
 
-          {data && <RepoTable repos={data.data} />}
+          {data && <RepoTable repos={data.data} slug={slug!} />}
 
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-4">

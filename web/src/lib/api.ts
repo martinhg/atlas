@@ -79,6 +79,26 @@ export async function fetchRepos(
   return res.json();
 }
 
+export async function fetchRepoDetail(
+  slug: string,
+  name: string,
+): Promise<Repository> {
+  const res = await apiFetch(`/api/v1/orgs/${slug}/repos/${name}`);
+  if (!res.ok) throw new Error("Failed to fetch repository");
+  return res.json();
+}
+
+export async function fetchRepoDeps(
+  slug: string,
+  name: string,
+): Promise<RepoDepResponse> {
+  const res = await apiFetch(
+    `/api/v1/orgs/${slug}/repos/${name}/dependencies`,
+  );
+  if (!res.ok) throw new Error("Failed to fetch repository dependencies");
+  return res.json();
+}
+
 export async function connectInstallation(installationID: number): Promise<Organization> {
   const res = await apiFetch("/api/v1/orgs/connect", {
     method: "POST",
@@ -119,6 +139,21 @@ export async function fetchDependencyDetail(
   if (!res.ok) throw new Error("Failed to fetch dependency detail");
   const data = await res.json();
   return data.repos ?? [];
+}
+
+// --- Repo dependency types ---
+
+export interface RepoDepDetail {
+  ecosystem: string;
+  name: string;
+  version: string;
+  dep_type: string;
+  source_file: string;
+}
+
+export interface RepoDepResponse {
+  repo: string;
+  dependencies: RepoDepDetail[];
 }
 
 // --- Ownership types ---

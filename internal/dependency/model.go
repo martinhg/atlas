@@ -43,3 +43,12 @@ type DepDetail struct {
 	DepType    string `json:"dep_type"`
 	SourceFile string `json:"source_file"`
 }
+
+// RepoDepDetail describes a single dependency used by a specific repository.
+type RepoDepDetail struct {
+	Ecosystem  string `json:"ecosystem"`
+	Name       string `json:"name"`
+	Version    string `json:"version"`
+	DepType    string `json:"dep_type"`
+	SourceFile string `json:"source_file"`
+}
