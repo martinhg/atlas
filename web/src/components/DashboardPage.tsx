@@ -100,6 +100,12 @@ export default function DashboardPage({ user, onLogout }: Props) {
                       >
                         Dependencies →
                       </Link>
+                      <Link
+                        to={`/orgs/${org.slug}/ownership`}
+                        className="text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
+                      >
+                        Ownership →
+                      </Link>
                     </div>
                   </div>
                 ))}

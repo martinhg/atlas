@@ -1,16 +1,17 @@
 import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { clearAuth } from "@/lib/auth";
-import { useRepos } from "./useRepos";
-import { RepoTable } from "./RepoTable";
+import { useOwnershipDetail } from "./useOwnershipDetail";
+import { OwnershipDetailTable } from "./OwnershipDetailTable";
 
-interface RepoListPageProps {
+interface Props {
   onLogout: () => void;
 }
 
-export function RepoListPage({ onLogout }: RepoListPageProps) {
-  const { slug } = useParams<{ slug: string }>();
-  const { data: repos, isLoading, error } = useRepos(slug!);
+export function OwnershipDetailPage({ onLogout }: Props) {
+  const { slug, repo } = useParams<{ slug: string; repo: string }>();
+
+  const { data, isPending, isError } = useOwnershipDetail(slug!, repo!);
 
   const handleLogout = () => {
     clearAuth();
@@ -26,20 +27,14 @@ export function RepoListPage({ onLogout }: RepoListPageProps) {
               Atlas
             </Link>
             <span className="text-zinc-600">/</span>
-            <span className="text-zinc-400">Repositories</span>
-            <span className="text-zinc-600">·</span>
-            <Link
-              to={`/orgs/${slug}/dependencies`}
-              className="text-zinc-500 hover:text-zinc-300 text-sm"
-            >
-              Dependencies
-            </Link>
             <Link
               to={`/orgs/${slug}/ownership`}
-              className="text-zinc-500 hover:text-zinc-300 text-sm"
+              className="text-zinc-400 hover:text-zinc-200"
             >
               Ownership
             </Link>
+            <span className="text-zinc-600">/</span>
+            <span className="text-zinc-300">{repo}</span>
           </div>
           <Button
             variant="ghost"
@@ -54,22 +49,22 @@ export function RepoListPage({ onLogout }: RepoListPageProps) {
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">Repositories</h2>
-            {repos && (
-              <span className="text-sm text-zinc-500">{repos.length} repositories</span>
-            )}
+          <div>
+            <h2 className="text-2xl font-semibold">{repo}</h2>
+            <p className="text-zinc-500 text-sm mt-1">CODEOWNERS rules</p>
           </div>
 
-          {isLoading && (
-            <p className="text-zinc-500 animate-pulse">Loading repositories...</p>
+          {isPending && (
+            <p className="text-zinc-500 animate-pulse">Loading...</p>
           )}
 
-          {error && (
-            <p className="text-red-400">Failed to load repositories.</p>
+          {isError && (
+            <p className="text-red-400">Failed to load ownership details.</p>
           )}
 
-          {repos && <RepoTable repos={repos} />}
+          {data !== undefined && !isPending && !isError && (
+            <OwnershipDetailTable rules={data.rules} />
+          )}
         </div>
       </main>
     </div>
