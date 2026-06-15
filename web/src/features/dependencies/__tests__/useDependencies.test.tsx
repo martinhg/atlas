@@ -24,7 +24,7 @@ describe("useDependencies", () => {
     vi.clearAllMocks();
   });
 
-  it("fetches dependencies for given slug", async () => {
+  it("fetches dependencies with default params", async () => {
     const response = {
       data: [{ ecosystem: "npm", name: "react", repo_count: 5 }],
       total: 1,
@@ -39,7 +39,19 @@ describe("useDependencies", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(response);
-    expect(mockFetchDependencies).toHaveBeenCalledWith("my-org", 1, 50);
+    expect(mockFetchDependencies).toHaveBeenCalledWith("my-org", 1, 50, "");
+  });
+
+  it("passes q param to fetchDependencies", async () => {
+    const response = { data: [], total: 0, page: 1, per_page: 50 };
+    mockFetchDependencies.mockResolvedValue(response);
+
+    const { result } = renderHook(() => useDependencies("my-org", 1, 50, "lodash"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockFetchDependencies).toHaveBeenCalledWith("my-org", 1, 50, "lodash");
   });
 
   it("starts in loading state", () => {

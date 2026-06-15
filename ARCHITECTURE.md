@@ -31,6 +31,7 @@ Each domain lives in its own package under `internal/` and follows the same stru
 | `catalog` | Repository storage and listing |
 | `dependency` | Dependency parsing (npm), storage, and querying |
 | `ownership` | CODEOWNERS parsing, ownership storage, and querying |
+| `search` (via existing packages) | ILIKE filtering on repos and dependencies via `?q=` query param |
 | `platform/config` | Environment variable loading via godotenv |
 | `platform/database` | pgxpool connection, custom migration runner with advisory locking |
 | `platform/github` | GitHub App client factory (JWT → installation token) |
@@ -99,6 +100,7 @@ SQL migrations live in `migrations/` and are auto-embedded via `embed.FS`. They 
 000003_create_repositories.up.sql
 000004_create_dependencies.up.sql
 000005_create_repo_owners.up.sql
+000006_add_search_indexes.up.sql
 ```
 
 ## Frontend
@@ -112,7 +114,7 @@ React 19, Vite 8, TypeScript, Tailwind CSS v4, shadcn/ui, TanStack Query v5.
 ```
 web/src/
 ├── components/          Shared components (DashboardPage, LoginPage, AuthGuard)
-│   └── ui/              shadcn primitives (Button, Card, Avatar)
+│   └── ui/              shadcn primitives (Button, Card, Avatar, Input)
 ├── features/            Feature modules (catalog, dependencies, ownership)
 │   ├── catalog/         RepoListPage, RepoTable, useRepos
 │   ├── dependencies/    DependencyListPage, DependencyDetailPage, hooks, tables
@@ -208,3 +210,4 @@ GitHub Actions runs on every PR and push to main:
 | No ORM | pgx/pgxpool direct queries for full control and performance |
 | Feature-based frontend | Each domain (catalog, dependencies) is self-contained with its own pages, hooks, and components |
 | pnpm only | Security-first: frozen lockfile, `ignore-scripts=true`, registry enforcement |
+| ILIKE over FTS for search | At <1000 repos per org, ILIKE is <5ms; `text_pattern_ops` indexes accelerate prefix queries; pg_trgm is the documented upgrade path |

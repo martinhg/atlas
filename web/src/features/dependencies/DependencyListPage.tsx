@@ -1,6 +1,7 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { clearAuth } from "@/lib/auth";
 import { useDependencies } from "./useDependencies";
 import { DependencyTable } from "./DependencyTable";
@@ -12,10 +13,23 @@ interface Props {
 
 export function DependencyListPage({ onLogout }: Props) {
   const { slug } = useParams<{ slug: string }>();
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const perPage = 50;
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
-  const { data, isPending, isError } = useDependencies(slug!, page, perPage);
+  useEffect(() => {
+    timerRef.current = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [search]);
+
+  const { data, isPending, isError } = useDependencies(slug!, page, perPage, debouncedSearch);
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -74,6 +88,13 @@ export function DependencyListPage({ onLogout }: Props) {
             )}
           </div>
 
+          <Input
+            type="text"
+            placeholder="Search dependencies..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+
           {isPending && (
             <p className="text-zinc-500 animate-pulse">Loading dependencies...</p>
           )}
@@ -82,7 +103,11 @@ export function DependencyListPage({ onLogout }: Props) {
             <p className="text-red-400">Failed to load dependencies.</p>
           )}
 
-          {data && (
+          {data && data.data.length === 0 && !isPending && (
+            <p className="text-zinc-500">No dependencies found.</p>
+          )}
+
+          {data && data.data.length > 0 && (
             <DependencyTable
               deps={data.data}
               onRowClick={handleRowClick}

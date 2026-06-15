@@ -56,8 +56,25 @@ export async function fetchOrgs(): Promise<Organization[]> {
   return res.json();
 }
 
-export async function fetchRepos(slug: string): Promise<Repository[]> {
-  const res = await apiFetch(`/api/v1/orgs/${slug}/repos`);
+export interface RepoListResponse {
+  data: Repository[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export async function fetchRepos(
+  slug: string,
+  page = 1,
+  perPage = 25,
+  q = "",
+): Promise<RepoListResponse> {
+  const params = new URLSearchParams({
+    page: String(page),
+    per_page: String(perPage),
+  });
+  if (q) params.set("q", q);
+  const res = await apiFetch(`/api/v1/orgs/${slug}/repos?${params}`);
   if (!res.ok) throw new Error("Failed to fetch repositories");
   return res.json();
 }
@@ -76,9 +93,15 @@ export async function fetchDependencies(
   slug: string,
   page = 1,
   perPage = 50,
+  q = "",
 ): Promise<DependencyListResponse> {
+  const params = new URLSearchParams({
+    page: String(page),
+    per_page: String(perPage),
+  });
+  if (q) params.set("q", q);
   const res = await apiFetch(
-    `/api/v1/orgs/${slug}/dependencies?page=${page}&per_page=${perPage}`,
+    `/api/v1/orgs/${slug}/dependencies?${params}`,
   );
   if (!res.ok) throw new Error("Failed to fetch dependencies");
   return res.json();

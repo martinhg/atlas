@@ -33,15 +33,30 @@ describe("fetchOrgs", () => {
 
 describe("fetchRepos", () => {
   it("returns repos for an org", async () => {
-    const repos = [{ id: "r1", name: "repo-1" }];
+    const response = { data: [{ id: "r1", name: "repo-1" }], total: 1, page: 1, per_page: 25 };
     mockApiFetch.mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve(repos),
+      json: () => Promise.resolve(response),
     } as Response);
 
     const result = await fetchRepos("org-uuid-123");
-    expect(result).toEqual(repos);
-    expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/orgs/org-uuid-123/repos");
+    expect(result).toEqual(response);
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/api/v1/orgs/org-uuid-123/repos?page=1&per_page=25"
+    );
+  });
+
+  it("passes q param when provided", async () => {
+    const response = { data: [], total: 0, page: 1, per_page: 25 };
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(response),
+    } as Response);
+
+    await fetchRepos("my-org", 1, 25, "react");
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/api/v1/orgs/my-org/repos?page=1&per_page=25&q=react"
+    );
   });
 
   it("throws on failure", async () => {

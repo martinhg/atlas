@@ -1,5 +1,7 @@
 import { useParams, Link } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { clearAuth } from "@/lib/auth";
 import { useRepos } from "./useRepos";
 import { RepoTable } from "./RepoTable";
@@ -10,7 +12,26 @@ interface RepoListPageProps {
 
 export function RepoListPage({ onLogout }: RepoListPageProps) {
   const { slug } = useParams<{ slug: string }>();
-  const { data: repos, isLoading, error } = useRepos(slug!);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const perPage = 25;
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  useEffect(() => {
+    timerRef.current = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [search]);
+
+  const { data, isLoading, error } = useRepos(slug!, page, perPage, debouncedSearch);
+
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / perPage);
 
   const handleLogout = () => {
     clearAuth();
@@ -56,10 +77,17 @@ export function RepoListPage({ onLogout }: RepoListPageProps) {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-semibold">Repositories</h2>
-            {repos && (
-              <span className="text-sm text-zinc-500">{repos.length} repositories</span>
+            {data && (
+              <span className="text-sm text-zinc-500">{total} repositories</span>
             )}
           </div>
+
+          <Input
+            type="text"
+            placeholder="Search repositories..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
 
           {isLoading && (
             <p className="text-zinc-500 animate-pulse">Loading repositories...</p>
@@ -69,7 +97,33 @@ export function RepoListPage({ onLogout }: RepoListPageProps) {
             <p className="text-red-400">Failed to load repositories.</p>
           )}
 
-          {repos && <RepoTable repos={repos} />}
+          {data && <RepoTable repos={data.data} />}
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="text-zinc-400 hover:text-zinc-200"
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-zinc-500">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                className="text-zinc-400 hover:text-zinc-200"
+              >
+                Next
+              </Button>
+            </div>
+          )}
         </div>
       </main>
     </div>

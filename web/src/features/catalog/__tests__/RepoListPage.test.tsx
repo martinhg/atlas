@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RepoListPage } from "@/features/catalog/RepoListPage";
@@ -76,7 +77,7 @@ describe("RepoListPage", () => {
 
   it("renders repos when loaded", async () => {
     mockUseRepos.mockReturnValue({
-      data: mockRepos,
+      data: { data: mockRepos, total: 1, page: 1, per_page: 25 },
       isLoading: false,
       error: null,
     } as unknown as ReturnType<typeof useRepos>);
@@ -91,7 +92,7 @@ describe("RepoListPage", () => {
 
   it("renders Repositories heading", () => {
     mockUseRepos.mockReturnValue({
-      data: [],
+      data: { data: [], total: 0, page: 1, per_page: 25 },
       isLoading: false,
       error: null,
     } as unknown as ReturnType<typeof useRepos>);
@@ -102,7 +103,7 @@ describe("RepoListPage", () => {
 
   it("renders Atlas link back to dashboard", () => {
     mockUseRepos.mockReturnValue({
-      data: [],
+      data: { data: [], total: 0, page: 1, per_page: 25 },
       isLoading: false,
       error: null,
     } as unknown as ReturnType<typeof useRepos>);
@@ -116,12 +117,53 @@ describe("RepoListPage", () => {
 
   it("renders sign out button", () => {
     mockUseRepos.mockReturnValue({
-      data: [],
+      data: { data: [], total: 0, page: 1, per_page: 25 },
       isLoading: false,
       error: null,
     } as unknown as ReturnType<typeof useRepos>);
 
     renderPage();
     expect(screen.getByRole("button", { name: /sign out/i })).toBeInTheDocument();
+  });
+
+  it("renders search input", () => {
+    mockUseRepos.mockReturnValue({
+      data: { data: [], total: 0, page: 1, per_page: 25 },
+      isLoading: false,
+      error: null,
+    } as unknown as ReturnType<typeof useRepos>);
+
+    renderPage();
+    expect(screen.getByPlaceholderText(/search repositories/i)).toBeInTheDocument();
+  });
+
+  it("debounces search input and passes q to hook", async () => {
+    const user = userEvent.setup();
+    mockUseRepos.mockReturnValue({
+      data: { data: [], total: 0, page: 1, per_page: 25 },
+      isLoading: false,
+      error: null,
+    } as unknown as ReturnType<typeof useRepos>);
+
+    renderPage();
+    const input = screen.getByPlaceholderText(/search repositories/i);
+    await user.type(input, "react");
+
+    await waitFor(() => {
+      expect(mockUseRepos).toHaveBeenCalledWith("test-org", 1, 25, "react");
+    });
+  });
+
+  it("renders pagination when totalPages > 1", () => {
+    mockUseRepos.mockReturnValue({
+      data: { data: mockRepos, total: 50, page: 1, per_page: 25 },
+      isLoading: false,
+      error: null,
+    } as unknown as ReturnType<typeof useRepos>);
+
+    renderPage();
+    expect(screen.getByRole("button", { name: /previous/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /next/i })).toBeInTheDocument();
+    expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
   });
 });

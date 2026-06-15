@@ -146,7 +146,7 @@ For a deeper dive into how these pieces fit together, see [ARCHITECTURE.md](ARCH
 - [x] **Epic 2** — Repository Discovery & Sync
 - [x] **Epic 3** — Dependency Parsing (npm, Phase 1)
 - [x] **Epic 4** — Ownership Detection
-- [ ] **Epic 5** — Search
+- [x] **Epic 5** — Search
 - [ ] **Epic 6** — Dependency Graph Visualization
 - [ ] **Epic 7** — Impact Analysis
 - [ ] **Epic 8** — Risk Dashboard

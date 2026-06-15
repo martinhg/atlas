@@ -9,6 +9,11 @@ and this project adheres to [Conventional Commits](https://www.conventionalcommi
 
 ### Added
 
+- Search (Phase 1): ILIKE filtering (`?q=`) on repos and dependencies endpoints (#26)
+- Search (Phase 1): debounced search inputs on RepoListPage and DependencyListPage (#27)
+- Pagination on repos endpoint with `{data, total, page, per_page}` envelope (#26)
+- Migration 000006: `text_pattern_ops` B-tree indexes on repositories.name and full_name (#26)
+- shadcn Input component (#27)
 - Ownership detection (Phase 1): CODEOWNERS parser with BOM/CRLF handling and 20 test cases (#22)
 - Ownership store with sync, paginated list, and detail queries (#22)
 - Ownership service with 3-path CODEOWNERS fetch and error isolation (#23)

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -149,7 +149,34 @@ describe("DependencyListPage", () => {
     renderPage();
     await user.click(screen.getByRole("button", { name: /next/i }));
 
-    // After clicking Next, useDependencies should be called with page 2
-    expect(mockUseDependencies).toHaveBeenCalledWith("test-org", 2, 50);
+    expect(mockUseDependencies).toHaveBeenCalledWith("test-org", 2, 50, "");
+  });
+
+  it("renders search input", () => {
+    mockUseDependencies.mockReturnValue({
+      data: { data: [], total: 0, page: 1, per_page: 50 },
+      isPending: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useDependencies>);
+
+    renderPage();
+    expect(screen.getByPlaceholderText(/search dependencies/i)).toBeInTheDocument();
+  });
+
+  it("debounces search input and passes q to hook", async () => {
+    const user = userEvent.setup();
+    mockUseDependencies.mockReturnValue({
+      data: { data: [], total: 0, page: 1, per_page: 50 },
+      isPending: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useDependencies>);
+
+    renderPage();
+    const input = screen.getByPlaceholderText(/search dependencies/i);
+    await user.type(input, "lodash");
+
+    await waitFor(() => {
+      expect(mockUseDependencies).toHaveBeenCalledWith("test-org", 1, 50, "lodash");
+    });
   });
 });
