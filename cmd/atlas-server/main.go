@@ -75,7 +75,7 @@ func main() {
 
 	orgStore := org.NewStore(pool)
 	catalogStore := catalog.NewStore(pool)
-	catalogHandler := catalog.NewHandler(catalogStore)
+	catalogHandler := catalog.NewHandler(catalogStore, &orgStoreResolver{store: orgStore})
 
 	depStore := dependency.NewStore(pool)
 	depService := dependency.NewService(depStore)
@@ -123,7 +123,7 @@ func main() {
 			r.Use(auth.Middleware(cfg.JWTSecret))
 			r.Get("/auth/me", authHandler.HandleMe)
 			r.Route("/orgs", orgHandler.Routes())
-			r.Get("/orgs/{orgID}/repos", catalogHandler.HandleListRepos)
+			r.Get("/orgs/{slug}/repos", catalogHandler.HandleListRepos)
 			r.Get("/orgs/{slug}/dependencies", depHandler.HandleListDependencies)
 			r.Get("/orgs/{slug}/dependencies/{ecosystem}/*", depHandler.HandleGetDependency)
 		})

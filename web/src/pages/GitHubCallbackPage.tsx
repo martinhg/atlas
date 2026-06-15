@@ -17,7 +17,7 @@ export function GitHubCallbackPage() {
 
       try {
         const org = await connectInstallation(Number(installationId));
-        navigate(`/orgs/${org.id}/repos`, { replace: true });
+        navigate(`/orgs/${org.slug}/repos`, { replace: true });
       } catch {
         setError("Failed to connect GitHub installation. Please try again.");
       }

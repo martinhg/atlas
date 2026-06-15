@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -9,19 +10,30 @@ import (
 	"github.com/google/uuid"
 )
 
-type Handler struct {
-	repoStore RepoStore
+type OrgResolver interface {
+	GetOrgIDBySlug(ctx context.Context, slug string) (uuid.UUID, bool, error)
 }
 
-func NewHandler(repoStore RepoStore) *Handler {
-	return &Handler{repoStore: repoStore}
+type Handler struct {
+	repoStore   RepoStore
+	orgResolver OrgResolver
+}
+
+func NewHandler(repoStore RepoStore, orgResolver OrgResolver) *Handler {
+	return &Handler{repoStore: repoStore, orgResolver: orgResolver}
 }
 
 func (h *Handler) HandleListRepos(w http.ResponseWriter, r *http.Request) {
-	orgIDStr := chi.URLParam(r, "orgID")
-	orgID, err := uuid.Parse(orgIDStr)
+	slug := chi.URLParam(r, "slug")
+
+	orgID, found, err := h.orgResolver.GetOrgIDBySlug(r.Context(), slug)
 	if err != nil {
-		http.Error(w, `{"error":"invalid org_id"}`, http.StatusBadRequest)
+		slog.Error("failed to resolve org slug", "slug", slug, "error", err)
+		http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
+		return
+	}
+	if !found {
+		http.Error(w, `{"error":"organization not found"}`, http.StatusNotFound)
 		return
 	}
 
@@ -33,5 +45,7 @@ func (h *Handler) HandleListRepos(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(repos)
+	if err := json.NewEncoder(w).Encode(repos); err != nil {
+		slog.Error("failed to encode repos response", "error", err)
+	}
 }
