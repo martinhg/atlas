@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchRepos } from "@/lib/api";
 
-export function useRepos(orgID: string) {
+export function useRepos(slug: string) {
   return useQuery({
-    queryKey: ["repos", orgID],
-    queryFn: () => fetchRepos(orgID),
-    enabled: !!orgID,
+    queryKey: ["repos", slug],
+    queryFn: () => fetchRepos(slug),
+    enabled: !!slug,
   });
 }

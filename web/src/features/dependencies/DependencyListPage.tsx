@@ -39,11 +39,13 @@ export function DependencyListPage({ onLogout }: Props) {
               Atlas
             </Link>
             <span className="text-zinc-600">/</span>
+            <span className="text-zinc-400">Dependencies</span>
+            <span className="text-zinc-600">·</span>
             <Link
-              to={`/orgs/${slug}/dependencies`}
-              className="text-zinc-400 hover:text-zinc-200"
+              to={`/orgs/${slug}/repos`}
+              className="text-zinc-500 hover:text-zinc-300 text-sm"
             >
-              Dependencies
+              Repositories
             </Link>
           </div>
           <Button

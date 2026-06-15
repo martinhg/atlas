@@ -25,7 +25,7 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: "/orgs/:orgID/repos",
+    path: "/orgs/:slug/repos",
     element: (
       <AuthGuard>
         {(_user, onLogout) => <RepoListPage onLogout={onLogout} />}

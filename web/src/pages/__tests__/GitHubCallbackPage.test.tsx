@@ -16,7 +16,7 @@ function renderPage(search = "") {
     <MemoryRouter initialEntries={[`/github/callback${search}`]}>
       <Routes>
         <Route path="/github/callback" element={<GitHubCallbackPage />} />
-        <Route path="/orgs/:orgID/repos" element={<div>Repo List</div>} />
+        <Route path="/orgs/:slug/repos" element={<div>Repo List</div>} />
         <Route path="/dashboard" element={<div>Dashboard</div>} />
       </Routes>
     </MemoryRouter>

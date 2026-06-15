@@ -28,16 +28,16 @@ vi.mock("@/features/catalog/useRepos", () => ({
 import { useRepos } from "@/features/catalog/useRepos";
 const mockUseRepos = vi.mocked(useRepos);
 
-function renderPage(orgID = "test-org-id") {
+function renderPage(slug = "test-org") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[`/orgs/${orgID}/repos`]}>
+      <MemoryRouter initialEntries={[`/orgs/${slug}/repos`]}>
         <Routes>
           <Route
-            path="/orgs/:orgID/repos"
+            path="/orgs/:slug/repos"
             element={<RepoListPage onLogout={() => {}} />}
           />
           <Route path="/dashboard" element={<div>Dashboard</div>} />

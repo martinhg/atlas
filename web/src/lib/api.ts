@@ -56,8 +56,8 @@ export async function fetchOrgs(): Promise<Organization[]> {
   return res.json();
 }
 
-export async function fetchRepos(orgID: string): Promise<Repository[]> {
-  const res = await apiFetch(`/api/v1/orgs/${orgID}/repos`);
+export async function fetchRepos(slug: string): Promise<Repository[]> {
+  const res = await apiFetch(`/api/v1/orgs/${slug}/repos`);
   if (!res.ok) throw new Error("Failed to fetch repositories");
   return res.json();
 }

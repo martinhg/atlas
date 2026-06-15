@@ -36,7 +36,7 @@ export function DependencyTable({ deps, onRowClick }: Props) {
               onClick={onRowClick ? () => onRowClick(dep) : undefined}
               {...(onRowClick && {
                 tabIndex: 0,
-                role: "link" as const,
+                "aria-label": `View ${dep.name} dependency details`,
                 onKeyDown: (e: React.KeyboardEvent<HTMLTableRowElement>) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();

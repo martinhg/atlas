@@ -9,8 +9,8 @@ interface RepoListPageProps {
 }
 
 export function RepoListPage({ onLogout }: RepoListPageProps) {
-  const { orgID } = useParams<{ orgID: string }>();
-  const { data: repos, isLoading, error } = useRepos(orgID!);
+  const { slug } = useParams<{ slug: string }>();
+  const { data: repos, isLoading, error } = useRepos(slug!);
 
   const handleLogout = () => {
     clearAuth();
@@ -27,6 +27,13 @@ export function RepoListPage({ onLogout }: RepoListPageProps) {
             </Link>
             <span className="text-zinc-600">/</span>
             <span className="text-zinc-400">Repositories</span>
+            <span className="text-zinc-600">·</span>
+            <Link
+              to={`/orgs/${slug}/dependencies`}
+              className="text-zinc-500 hover:text-zinc-300 text-sm"
+            >
+              Dependencies
+            </Link>
           </div>
           <Button
             variant="ghost"

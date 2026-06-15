@@ -24,7 +24,7 @@ describe("useRepos", () => {
     vi.clearAllMocks();
   });
 
-  it("fetches repos for given orgID", async () => {
+  it("fetches repos for given slug", async () => {
     const repos: Awaited<ReturnType<typeof fetchRepos>> = [
       { id: "r1", org_id: "o1", github_id: 1, name: "repo-1", full_name: "org/repo-1", default_branch: "main", language: "Go", private: false, fork: false, stars: 0, created_at: "", updated_at: "" },
     ];
@@ -39,7 +39,7 @@ describe("useRepos", () => {
     expect(mockFetchRepos).toHaveBeenCalledWith("org-123");
   });
 
-  it("does not fetch when orgID is empty", () => {
+  it("does not fetch when slug is empty", () => {
     const { result } = renderHook(() => useRepos(""), {
       wrapper: createWrapper(),
     });

@@ -30,9 +30,19 @@ func (m *mockRepoStore) GetRepositoriesByOrgID(_ context.Context, _ uuid.UUID) (
 	return m.repos, nil
 }
 
+type mockOrgResolver struct {
+	orgID uuid.UUID
+	found bool
+	err   error
+}
+
+func (m *mockOrgResolver) GetOrgIDBySlug(_ context.Context, _ string) (uuid.UUID, bool, error) {
+	return m.orgID, m.found, m.err
+}
+
 func newRouter(h *Handler) *chi.Mux {
 	r := chi.NewRouter()
-	r.Get("/orgs/{orgID}/repos", h.HandleListRepos)
+	r.Get("/orgs/{slug}/repos", h.HandleListRepos)
 	return r
 }
 
@@ -44,10 +54,11 @@ func TestHandleListRepos_200(t *testing.T) {
 			{ID: uuid.New(), OrgID: orgID, Name: "repo-2", FullName: "org/repo-2"},
 		},
 	}
-	h := NewHandler(store)
+	resolver := &mockOrgResolver{orgID: orgID, found: true}
+	h := NewHandler(store, resolver)
 	r := newRouter(h)
 
-	req := httptest.NewRequest(http.MethodGet, "/orgs/"+orgID.String()+"/repos", nil)
+	req := httptest.NewRequest(http.MethodGet, "/orgs/my-org/repos", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -60,10 +71,11 @@ func TestHandleListRepos_200(t *testing.T) {
 }
 
 func TestHandleListRepos_200_empty(t *testing.T) {
-	h := NewHandler(&mockRepoStore{})
+	resolver := &mockOrgResolver{orgID: uuid.New(), found: true}
+	h := NewHandler(&mockRepoStore{}, resolver)
 	r := newRouter(h)
 
-	req := httptest.NewRequest(http.MethodGet, "/orgs/"+uuid.New().String()+"/repos", nil)
+	req := httptest.NewRequest(http.MethodGet, "/orgs/my-org/repos", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -72,24 +84,40 @@ func TestHandleListRepos_200_empty(t *testing.T) {
 	}
 }
 
-func TestHandleListRepos_400_invalid_org_id(t *testing.T) {
-	h := NewHandler(&mockRepoStore{})
+func TestHandleListRepos_404_org_not_found(t *testing.T) {
+	resolver := &mockOrgResolver{found: false}
+	h := NewHandler(&mockRepoStore{}, resolver)
 	r := newRouter(h)
 
-	req := httptest.NewRequest(http.MethodGet, "/orgs/not-a-uuid/repos", nil)
+	req := httptest.NewRequest(http.MethodGet, "/orgs/unknown-org/repos", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+}
+
+func TestHandleListRepos_500_resolver_error(t *testing.T) {
+	resolver := &mockOrgResolver{err: fmt.Errorf("db down")}
+	h := NewHandler(&mockRepoStore{}, resolver)
+	r := newRouter(h)
+
+	req := httptest.NewRequest(http.MethodGet, "/orgs/my-org/repos", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
 	}
 }
 
 func TestHandleListRepos_500_store_error(t *testing.T) {
-	h := NewHandler(&mockRepoStore{listErr: fmt.Errorf("db down")})
+	resolver := &mockOrgResolver{orgID: uuid.New(), found: true}
+	h := NewHandler(&mockRepoStore{listErr: fmt.Errorf("db down")}, resolver)
 	r := newRouter(h)
 
-	req := httptest.NewRequest(http.MethodGet, "/orgs/"+uuid.New().String()+"/repos", nil)
+	req := httptest.NewRequest(http.MethodGet, "/orgs/my-org/repos", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
