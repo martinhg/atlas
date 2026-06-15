@@ -9,13 +9,23 @@ and this project adheres to [Conventional Commits](https://www.conventionalcommi
 
 ### Added
 
-- Dependency data layer: migration, npm parser, and store with batched upserts (#14)
-- CI reinforcement: golangci-lint, govulncheck, CodeQL SAST, PR size guard, conventional commit validation, dependency review
+- Dependency parsing (Phase 1): data layer with npm parser and batched upserts (#14)
+- Dependency service, handler, sync integration, and API routes (#17)
+- Dependency list and detail pages with TanStack Query hooks (#18)
+- Cross-navigation links between Repositories and Dependencies pages (#19)
+- ARCHITECTURE.md documenting system design, domain model, and key decisions (#20)
+- CI reinforcement: golangci-lint v2, govulncheck, CodeQL SAST, PR size guard, conventional commit validation, dependency review, CODEOWNERS (#15)
 
 ### Changed
 
+- Standardized all org-scoped URL params from mixed `{orgID}`/`{slug}` to consistent `{slug}` (#19)
 - Go version updated from 1.23 to 1.26
 - Dockerfile Node version updated from 20 to 22
+- README overhauled with visual identity, updated guides and references (#16)
+
+### Fixed
+
+- Removed invalid `role="link"` from clickable table rows for a11y compliance (#19)
 
 ## [0.2.0] - 2026-06-13
 

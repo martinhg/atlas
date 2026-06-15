@@ -134,6 +134,10 @@ ci: add Go lint step to PR workflow
 - Keep the first line under 72 characters.
 - Use the body to explain **what** and **why**, not **how**.
 
+## Architecture
+
+For an overview of the system design, domain model, and key decisions, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Coding Standards
 
 ### Go

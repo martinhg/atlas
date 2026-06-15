@@ -24,6 +24,7 @@
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> &middot;
+  <a href="ARCHITECTURE.md">Architecture</a> &middot;
   <a href="CONTRIBUTING.md">Contributing</a> &middot;
   <a href="SECURITY.md">Security</a> &middot;
   <a href="LICENSE">License</a>
@@ -113,20 +114,27 @@ The API runs at `http://localhost:8080` and the frontend at `http://localhost:51
 ```
 cmd/
   atlas-server/            API server entrypoint
-  atlas/                   CLI tool
+  atlas/                   CLI tool (Apache 2.0)
 internal/
   auth/                    GitHub OAuth + JWT authentication
-  catalog/                 Repository store and API
-  dependency/              Dependency parsing and inventory
-  org/                     Organization management + sync
+  catalog/                 Repository store and listing
+  dependency/              Dependency parsing, storage, and querying
+    parser/                npm package.json parser
+  ingest/parsers/          CLI parsers (Apache 2.0)
+  org/                     Organization management + sync orchestration
   platform/
-    config/                Environment configuration
-    database/              Connection pool + migration runner
-    github/                GitHub App client
-migrations/                SQL migrations (auto-embedded)
-web/                       React frontend
+    config/                Environment configuration (godotenv)
+    database/              pgxpool connection + migration runner
+    github/                GitHub App client factory
+migrations/                SQL migrations (auto-embedded, auto-run on startup)
+web/                       React SPA (Vite + Tailwind v4 + shadcn/ui)
+  src/features/            Feature modules (catalog, dependencies)
+  src/components/          Shared components + shadcn primitives
+  src/lib/                 API client, auth, utilities
 deploy/                    Docker + Compose
 ```
+
+For a deeper dive into how these pieces fit together, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 <hr />
 
@@ -134,7 +142,7 @@ deploy/                    Docker + Compose
 
 - [x] **Epic 1** — Authentication (GitHub OAuth + JWT)
 - [x] **Epic 2** — Repository Discovery & Sync
-- [ ] **Epic 3** — Dependency Parsing *(in progress)*
+- [x] **Epic 3** — Dependency Parsing (npm, Phase 1)
 - [ ] **Epic 4** — Ownership Detection
 - [ ] **Epic 5** — Search
 - [ ] **Epic 6** — Dependency Graph Visualization
@@ -166,6 +174,7 @@ See [LICENSE](LICENSE) for details.
 <hr />
 
 <p align="center">
+  <a href="ARCHITECTURE.md">Architecture</a> &middot;
   <a href="CONTRIBUTING.md">Contributing</a> &middot;
   <a href="SECURITY.md">Security Policy</a> &middot;
   <a href="CODE_OF_CONDUCT.md">Code of Conduct</a>
