@@ -147,6 +147,7 @@ For a deeper dive into how these pieces fit together, see [ARCHITECTURE.md](ARCH
 - [x] **Epic 3** — Dependency Parsing (npm, Phase 1)
 - [x] **Epic 4** — Ownership Detection
 - [x] **Epic 5** — Search
+- [x] **v1.0.0** — MVP Phase 1 Complete
 - [ ] **Epic 6** — Dependency Graph Visualization
 - [ ] **Epic 7** — Impact Analysis
 - [ ] **Epic 8** — Risk Dashboard

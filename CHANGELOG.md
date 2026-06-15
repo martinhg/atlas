@@ -7,8 +7,15 @@ and this project adheres to [Conventional Commits](https://www.conventionalcommi
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-06-15
+
+MVP Phase 1 complete — Atlas is a usable Engineering Intelligence Platform.
+
 ### Added
 
+- Repository detail page composing repo info, dependencies, and ownership (#28)
+- Two new API endpoints: `GET /repos/{name}` and `GET /repos/{name}/dependencies` (#28)
+- Repo names in list table link to detail page (#28)
 - Search (Phase 1): ILIKE filtering (`?q=`) on repos and dependencies endpoints (#26)
 - Search (Phase 1): debounced search inputs on RepoListPage and DependencyListPage (#27)
 - Pagination on repos endpoint with `{data, total, page, per_page}` envelope (#26)
