@@ -14,12 +14,13 @@ import (
 )
 
 // mockDepStore is a test double for the DepStore interface.
+// Updated to match new ListByOrg signature with q string param.
 type mockDepStore struct {
-	syncCalls  []syncCall
-	syncErr    error
-	listResult []DependencyWithCount
-	listTotal  int
-	listErr    error
+	syncCalls    []syncCall
+	syncErr      error
+	listResult   []DependencyWithCount
+	listTotal    int
+	listErr      error
 	detailResult []DepDetail
 	detailErr    error
 }
@@ -34,7 +35,8 @@ func (m *mockDepStore) SyncRepoDependencies(ctx context.Context, repoID uuid.UUI
 	return m.syncErr
 }
 
-func (m *mockDepStore) ListByOrg(ctx context.Context, orgID uuid.UUID, page, perPage int) ([]DependencyWithCount, int, error) {
+// ListByOrg now accepts q string param (PR1.7 RED — fails until PR1.8 updates the interface).
+func (m *mockDepStore) ListByOrg(ctx context.Context, orgID uuid.UUID, q string, page, perPage int) ([]DependencyWithCount, int, error) {
 	return m.listResult, m.listTotal, m.listErr
 }
 
@@ -87,7 +89,7 @@ func TestSyncRepoDependencies_propagates_error(t *testing.T) {
 }
 
 // TestListByOrg_returns_paginated_results verifies the list method returns
-// the expected slice and total count.
+// the expected slice and total count (updated to new q param signature).
 func TestListByOrg_returns_paginated_results(t *testing.T) {
 	expected := []DependencyWithCount{
 		{Ecosystem: "npm", Name: "react", RepoCount: 3},
@@ -96,7 +98,7 @@ func TestListByOrg_returns_paginated_results(t *testing.T) {
 	store := &mockDepStore{listResult: expected, listTotal: 42}
 	ctx := context.Background()
 
-	got, total, err := store.ListByOrg(ctx, uuid.New(), 1, 50)
+	got, total, err := store.ListByOrg(ctx, uuid.New(), "", 1, 50)
 	if err != nil {
 		t.Fatalf("ListByOrg: unexpected error: %v", err)
 	}
@@ -117,7 +119,7 @@ func TestListByOrg_returns_empty_for_org_with_no_deps(t *testing.T) {
 	store := &mockDepStore{listResult: []DependencyWithCount{}, listTotal: 0}
 	ctx := context.Background()
 
-	got, total, err := store.ListByOrg(ctx, uuid.New(), 1, 50)
+	got, total, err := store.ListByOrg(ctx, uuid.New(), "", 1, 50)
 	if err != nil {
 		t.Fatalf("ListByOrg: unexpected error: %v", err)
 	}
@@ -138,7 +140,7 @@ func TestListByOrg_propagates_error(t *testing.T) {
 	store := &mockDepStore{listErr: wantErr}
 	ctx := context.Background()
 
-	_, _, err := store.ListByOrg(ctx, uuid.New(), 1, 50)
+	_, _, err := store.ListByOrg(ctx, uuid.New(), "", 1, 50)
 	if !errors.Is(err, wantErr) {
 		t.Errorf("error = %v, want %v", err, wantErr)
 	}
@@ -192,6 +194,71 @@ func TestGetDetail_propagates_error(t *testing.T) {
 	_, err := store.GetDetail(ctx, uuid.New(), "npm", "react")
 	if !errors.Is(err, wantErr) {
 		t.Errorf("error = %v, want %v", err, wantErr)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// PR1.7: New tests for ListByOrg with q param.
+// These fail to compile until PR1.8 updates the DepStore interface.
+// ---------------------------------------------------------------------------
+
+// TestListByOrg_q_empty_returns_all verifies that q="" returns all deps.
+func TestListByOrg_q_empty_returns_all(t *testing.T) {
+	expected := []DependencyWithCount{
+		{Ecosystem: "npm", Name: "lodash", RepoCount: 2},
+		{Ecosystem: "npm", Name: "axios", RepoCount: 1},
+	}
+	store := &mockDepStore{listResult: expected, listTotal: 2}
+	ctx := context.Background()
+
+	got, total, err := store.ListByOrg(ctx, uuid.New(), "", 1, 50)
+	if err != nil {
+		t.Fatalf("ListByOrg q='': %v", err)
+	}
+	if total != 2 {
+		t.Errorf("total = %d, want 2", total)
+	}
+	if len(got) != 2 {
+		t.Errorf("len(got) = %d, want 2", len(got))
+	}
+}
+
+// TestListByOrg_q_filters_by_name verifies that q="lodash" would filter by name.
+// The mock always returns its preset data; this test verifies the q param is accepted.
+func TestListByOrg_q_filters_by_name(t *testing.T) {
+	expected := []DependencyWithCount{
+		{Ecosystem: "npm", Name: "lodash", RepoCount: 2},
+		{Ecosystem: "npm", Name: "lodash-fp", RepoCount: 1},
+	}
+	store := &mockDepStore{listResult: expected, listTotal: 2}
+	ctx := context.Background()
+
+	got, total, err := store.ListByOrg(ctx, uuid.New(), "lodash", 1, 50)
+	if err != nil {
+		t.Fatalf("ListByOrg q='lodash': %v", err)
+	}
+	if total != 2 {
+		t.Errorf("total = %d, want 2", total)
+	}
+	if len(got) != 2 {
+		t.Errorf("len(got) = %d, want 2", len(got))
+	}
+}
+
+// TestListByOrg_q_no_match_returns_empty verifies that a non-matching q returns empty.
+func TestListByOrg_q_no_match_returns_empty(t *testing.T) {
+	store := &mockDepStore{listResult: []DependencyWithCount{}, listTotal: 0}
+	ctx := context.Background()
+
+	got, total, err := store.ListByOrg(ctx, uuid.New(), "no-match-xyz", 1, 50)
+	if err != nil {
+		t.Fatalf("ListByOrg q='no-match-xyz': %v", err)
+	}
+	if total != 0 {
+		t.Errorf("total = %d, want 0", total)
+	}
+	if len(got) != 0 {
+		t.Errorf("len(got) = %d, want 0", len(got))
 	}
 }
 
@@ -291,8 +358,8 @@ func TestIntegration_SyncRepoDependencies(t *testing.T) {
 		t.Fatalf("first SyncRepoDependencies: %v", err)
 	}
 
-	// Verify deps exist via ListByOrg.
-	list, total, err := store.ListByOrg(ctx, orgID, 1, 50)
+	// Verify deps exist via ListByOrg (q="").
+	list, total, err := store.ListByOrg(ctx, orgID, "", 1, 50)
 	if err != nil {
 		t.Fatalf("ListByOrg after first sync: %v", err)
 	}
@@ -352,8 +419,8 @@ func TestIntegration_ListByOrg_pagination(t *testing.T) {
 		t.Fatalf("SyncRepoDependencies: %v", err)
 	}
 
-	// Page 1 with perPage=2.
-	page1, total, err := store.ListByOrg(ctx, orgID, 1, 2)
+	// Page 1 with perPage=2 (q="").
+	page1, total, err := store.ListByOrg(ctx, orgID, "", 1, 2)
 	if err != nil {
 		t.Fatalf("ListByOrg page 1: %v", err)
 	}
@@ -365,7 +432,7 @@ func TestIntegration_ListByOrg_pagination(t *testing.T) {
 	}
 
 	// Page 3 with perPage=2 should have 1 item.
-	page3, total3, err := store.ListByOrg(ctx, orgID, 3, 2)
+	page3, total3, err := store.ListByOrg(ctx, orgID, "", 3, 2)
 	if err != nil {
 		t.Fatalf("ListByOrg page 3: %v", err)
 	}
@@ -419,5 +486,98 @@ func TestIntegration_GetDetail(t *testing.T) {
 	}
 	if len(empty) != 0 {
 		t.Errorf("expected 0 detail rows for unknown dep, got %d", len(empty))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// PR1.7 Integration tests for ListByOrg with q param.
+// Require DATABASE_URL. FAIL until PR1.8 updates the real store.
+// ---------------------------------------------------------------------------
+
+// TestIntegration_ListByOrg_q_filters_by_name verifies ILIKE filtering.
+func TestIntegration_ListByOrg_q_filters_by_name(t *testing.T) {
+	pool := getTestPool(t)
+	store := NewStore(pool)
+	ctx := context.Background()
+	orgID := makeTestOrg(t, pool)
+	repoID := makeTestRepo(t, pool, orgID, "filter-test")
+
+	deps := []parser.ParsedDep{
+		{Ecosystem: "npm", Name: "lodash", Version: "^4.0.0", DepType: "dep", SourceFile: "package.json"},
+		{Ecosystem: "npm", Name: "lodash-fp", Version: "^4.0.0", DepType: "dep", SourceFile: "package.json"},
+		{Ecosystem: "npm", Name: "axios", Version: "^1.0.0", DepType: "dep", SourceFile: "package.json"},
+	}
+	if err := store.SyncRepoDependencies(ctx, repoID, deps); err != nil {
+		t.Fatalf("SyncRepoDependencies: %v", err)
+	}
+
+	got, total, err := store.ListByOrg(ctx, orgID, "lodash", 1, 50)
+	if err != nil {
+		t.Fatalf("ListByOrg q='lodash': %v", err)
+	}
+	if total != 2 {
+		t.Errorf("total = %d, want 2", total)
+	}
+	if len(got) != 2 {
+		t.Errorf("len(got) = %d, want 2", len(got))
+	}
+	for _, d := range got {
+		if d.Name != "lodash" && d.Name != "lodash-fp" {
+			t.Errorf("unexpected dep %q in results", d.Name)
+		}
+	}
+}
+
+// TestIntegration_ListByOrg_q_case_insensitive verifies ILIKE is case-insensitive.
+func TestIntegration_ListByOrg_q_case_insensitive(t *testing.T) {
+	pool := getTestPool(t)
+	store := NewStore(pool)
+	ctx := context.Background()
+	orgID := makeTestOrg(t, pool)
+	repoID := makeTestRepo(t, pool, orgID, "ci-test")
+
+	deps := []parser.ParsedDep{
+		{Ecosystem: "npm", Name: "Lodash", Version: "^4.0.0", DepType: "dep", SourceFile: "package.json"},
+	}
+	if err := store.SyncRepoDependencies(ctx, repoID, deps); err != nil {
+		t.Fatalf("SyncRepoDependencies: %v", err)
+	}
+
+	got, total, err := store.ListByOrg(ctx, orgID, "LODASH", 1, 50)
+	if err != nil {
+		t.Fatalf("ListByOrg q='LODASH': %v", err)
+	}
+	if total != 1 {
+		t.Errorf("total = %d, want 1", total)
+	}
+	if len(got) != 1 {
+		t.Errorf("len(got) = %d, want 1", len(got))
+	}
+}
+
+// TestIntegration_ListByOrg_q_no_match_returns_empty verifies no match.
+func TestIntegration_ListByOrg_q_no_match_returns_empty(t *testing.T) {
+	pool := getTestPool(t)
+	store := NewStore(pool)
+	ctx := context.Background()
+	orgID := makeTestOrg(t, pool)
+	repoID := makeTestRepo(t, pool, orgID, "nomatch-test")
+
+	deps := []parser.ParsedDep{
+		{Ecosystem: "npm", Name: "axios", Version: "^1.0.0", DepType: "dep", SourceFile: "package.json"},
+	}
+	if err := store.SyncRepoDependencies(ctx, repoID, deps); err != nil {
+		t.Fatalf("SyncRepoDependencies: %v", err)
+	}
+
+	got, total, err := store.ListByOrg(ctx, orgID, "no-match-xyz", 1, 50)
+	if err != nil {
+		t.Fatalf("ListByOrg q='no-match-xyz': %v", err)
+	}
+	if total != 0 {
+		t.Errorf("total = %d, want 0", total)
+	}
+	if len(got) != 0 {
+		t.Errorf("len(got) = %d, want 0", len(got))
 	}
 }

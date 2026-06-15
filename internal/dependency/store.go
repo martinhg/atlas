@@ -16,10 +16,12 @@ type DepStore interface {
 	// DELETE existing rows, then INSERT the new ones.
 	SyncRepoDependencies(ctx context.Context, repoID uuid.UUID, deps []parser.ParsedDep) error
 
-	// ListByOrg returns a paginated list of unique dependencies used by any
-	// repository in the given org, along with the total count and a per-dep
-	// repo count. Page and perPage are 1-based.
-	ListByOrg(ctx context.Context, orgID uuid.UUID, page, perPage int) ([]DependencyWithCount, int, error)
+	// ListByOrg returns a paginated, optionally filtered list of unique
+	// dependencies used by any repository in the given org, along with the
+	// total count and a per-dep repo count. q is applied as an ILIKE filter
+	// on the dependency name; empty string means no filter. Page and perPage
+	// are 1-based.
+	ListByOrg(ctx context.Context, orgID uuid.UUID, q string, page, perPage int) ([]DependencyWithCount, int, error)
 
 	// GetDetail returns the list of repos (within the org) that use the given
 	// dependency identified by ecosystem and name. Returns an empty slice when
@@ -117,9 +119,10 @@ func (s *Store) SyncRepoDependencies(ctx context.Context, repoID uuid.UUID, deps
 	return tx.Commit(ctx)
 }
 
-// ListByOrg returns a paginated list of unique dependencies used by repos in orgID.
-// total is the count of all matching rows (not just the current page).
-func (s *Store) ListByOrg(ctx context.Context, orgID uuid.UUID, page, perPage int) ([]DependencyWithCount, int, error) {
+// ListByOrg returns a filtered, paginated list of unique dependencies used by
+// repos in orgID. q is applied as an ILIKE filter on the dependency name;
+// empty string means no filter. total is the count of all matching rows.
+func (s *Store) ListByOrg(ctx context.Context, orgID uuid.UUID, q string, page, perPage int) ([]DependencyWithCount, int, error) {
 	// Clamp pagination parameters to safe values.
 	if page < 1 {
 		page = 1
@@ -134,6 +137,7 @@ func (s *Store) ListByOrg(ctx context.Context, orgID uuid.UUID, page, perPage in
 	offset := (page - 1) * perPage
 
 	// Single query with COUNT(*) OVER() to avoid race between COUNT and SELECT.
+	// $4 = q: when non-empty, filter dependency name with ILIKE.
 	rows, err := s.db.Query(ctx, `
 		SELECT d.id, d.ecosystem, d.name,
 		       COUNT(DISTINCT r.id) AS repo_count,
@@ -142,10 +146,11 @@ func (s *Store) ListByOrg(ctx context.Context, orgID uuid.UUID, page, perPage in
 		JOIN repo_dependencies rd ON rd.dep_id = d.id
 		JOIN repositories r       ON r.id = rd.repo_id
 		WHERE r.org_id = $1
+		  AND ($4 = '' OR d.name ILIKE '%' || $4 || '%')
 		GROUP BY d.id, d.ecosystem, d.name
 		ORDER BY d.name
 		LIMIT $2 OFFSET $3
-	`, orgID, perPage, offset)
+	`, orgID, perPage, offset, q)
 	if err != nil {
 		return nil, 0, err
 	}

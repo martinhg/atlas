@@ -52,8 +52,8 @@ func (m *mockCatalogStore) UpsertRepository(_ context.Context, r *catalog.Reposi
 	return r, nil
 }
 
-func (m *mockCatalogStore) GetRepositoriesByOrgID(_ context.Context, _ uuid.UUID) ([]catalog.Repository, error) {
-	return nil, nil
+func (m *mockCatalogStore) GetRepositoriesByOrgID(_ context.Context, _ uuid.UUID, _ string, _, _ int) ([]catalog.Repository, int, error) {
+	return nil, 0, nil
 }
 
 func newMockGitHubServer(repos []*gogithub.Repository, statusCode int) *httptest.Server {
