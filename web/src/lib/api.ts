@@ -1,5 +1,26 @@
 import { apiFetch } from "@/lib/auth";
 
+export interface DependencyWithCount {
+  ecosystem: string;
+  name: string;
+  repo_count: number;
+}
+
+export interface DepDetail {
+  repo_name: string;
+  repo_slug: string;
+  version: string;
+  dep_type: string;
+  source_file: string;
+}
+
+export interface DependencyListResponse {
+  data: DependencyWithCount[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
 export interface Organization {
   id: string;
   github_id: number;
@@ -49,4 +70,30 @@ export async function connectInstallation(installationID: number): Promise<Organ
   });
   if (!res.ok) throw new Error("Failed to connect installation");
   return res.json();
+}
+
+export async function fetchDependencies(
+  slug: string,
+  page = 1,
+  perPage = 50,
+): Promise<DependencyListResponse> {
+  const res = await apiFetch(
+    `/api/v1/orgs/${slug}/dependencies?page=${page}&per_page=${perPage}`,
+  );
+  if (!res.ok) throw new Error("Failed to fetch dependencies");
+  return res.json();
+}
+
+export async function fetchDependencyDetail(
+  slug: string,
+  ecosystem: string,
+  name: string,
+): Promise<DepDetail[]> {
+  const res = await apiFetch(
+    `/api/v1/orgs/${slug}/dependencies/${ecosystem}/${name}`,
+  );
+  if (res.status === 404) return [];
+  if (!res.ok) throw new Error("Failed to fetch dependency detail");
+  const data = await res.json();
+  return data.repos ?? [];
 }
