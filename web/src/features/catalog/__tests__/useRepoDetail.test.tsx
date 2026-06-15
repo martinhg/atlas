@@ -25,8 +25,12 @@ describe("useRepoDetail", () => {
   });
 
   it("fetches repo detail", async () => {
-    const repo = { id: "r1", name: "atlas", full_name: "org/atlas" };
-    mockFetchRepoDetail.mockResolvedValue(repo as any);
+    const repo = {
+      id: "r1", org_id: "o1", github_id: 1, name: "atlas", full_name: "org/atlas",
+      default_branch: "main", private: false, fork: false, stars: 0,
+      created_at: "2024-01-01", updated_at: "2024-01-01",
+    };
+    mockFetchRepoDetail.mockResolvedValue(repo);
 
     const { result } = renderHook(() => useRepoDetail("my-org", "atlas"), {
       wrapper: createWrapper(),
