@@ -130,6 +130,8 @@ func main() {
 			r.Get("/auth/me", authHandler.HandleMe)
 			r.Route("/orgs", orgHandler.Routes())
 			r.Get("/orgs/{slug}/repos", catalogHandler.HandleListRepos)
+			r.Get("/orgs/{slug}/repos/{name}", catalogHandler.HandleGetRepo)
+			r.Get("/orgs/{slug}/repos/{name}/dependencies", depHandler.HandleGetRepoDependencies)
 			r.Get("/orgs/{slug}/dependencies", depHandler.HandleListDependencies)
 			r.Get("/orgs/{slug}/dependencies/{ecosystem}/*", depHandler.HandleGetDependency)
 			r.Get("/orgs/{slug}/ownership", ownershipHandler.HandleListOwnership)

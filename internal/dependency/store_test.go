@@ -44,6 +44,10 @@ func (m *mockDepStore) GetDetail(ctx context.Context, orgID uuid.UUID, ecosystem
 	return m.detailResult, m.detailErr
 }
 
+func (m *mockDepStore) ListByRepoName(ctx context.Context, orgID uuid.UUID, repoName string) ([]RepoDepDetail, error) {
+	return nil, nil
+}
+
 // TestDepStore_interface_coverage ensures the mockDepStore implements DepStore,
 // providing compile-time verification that the interface shape is correct.
 func TestDepStore_interface_coverage(t *testing.T) {

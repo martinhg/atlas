@@ -10,6 +10,7 @@ import (
 type RepoStore interface {
 	UpsertRepository(ctx context.Context, repo *Repository) (*Repository, error)
 	GetRepositoriesByOrgID(ctx context.Context, orgID uuid.UUID, q string, page, perPage int) ([]Repository, int, error)
+	GetRepoByName(ctx context.Context, orgID uuid.UUID, name string) (*Repository, error)
 }
 
 type Store struct {
@@ -100,4 +101,22 @@ func (s *Store) GetRepositoriesByOrgID(ctx context.Context, orgID uuid.UUID, q s
 	}
 
 	return repos, total, nil
+}
+
+func (s *Store) GetRepoByName(ctx context.Context, orgID uuid.UUID, name string) (*Repository, error) {
+	var r Repository
+	err := s.db.QueryRow(ctx, `
+		SELECT id, org_id, github_id, name, full_name, description, default_branch,
+		       language, private, fork, stars, last_synced_at, created_at, updated_at
+		FROM repositories
+		WHERE org_id = $1 AND name = $2
+	`, orgID, name).Scan(
+		&r.ID, &r.OrgID, &r.GitHubID, &r.Name, &r.FullName, &r.Description,
+		&r.DefaultBranch, &r.Language, &r.Private, &r.Fork, &r.Stars,
+		&r.LastSyncedAt, &r.CreatedAt, &r.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
 }

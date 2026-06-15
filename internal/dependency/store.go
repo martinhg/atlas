@@ -27,6 +27,9 @@ type DepStore interface {
 	// dependency identified by ecosystem and name. Returns an empty slice when
 	// the dependency is not found — never returns nil.
 	GetDetail(ctx context.Context, orgID uuid.UUID, ecosystem, name string) ([]DepDetail, error)
+
+	// ListByRepoName returns all dependencies for a specific repo within the org.
+	ListByRepoName(ctx context.Context, orgID uuid.UUID, repoName string) ([]RepoDepDetail, error)
 }
 
 // Store is the pgxpool-backed implementation of DepStore.
@@ -194,6 +197,35 @@ func (s *Store) GetDetail(ctx context.Context, orgID uuid.UUID, ecosystem, name 
 	for rows.Next() {
 		var d DepDetail
 		if err := rows.Scan(&d.RepoName, &d.Version, &d.DepType, &d.SourceFile); err != nil {
+			return nil, err
+		}
+		result = append(result, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (s *Store) ListByRepoName(ctx context.Context, orgID uuid.UUID, repoName string) ([]RepoDepDetail, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT d.ecosystem, d.name, rd.version, rd.dep_type, rd.source_file
+		FROM repo_dependencies rd
+		JOIN dependencies d ON d.id = rd.dep_id
+		JOIN repositories r ON r.id = rd.repo_id
+		WHERE r.org_id = $1 AND r.name = $2
+		ORDER BY d.ecosystem, d.name, rd.source_file
+	`, orgID, repoName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]RepoDepDetail, 0)
+	for rows.Next() {
+		var d RepoDepDetail
+		if err := rows.Scan(&d.Ecosystem, &d.Name, &d.Version, &d.DepType, &d.SourceFile); err != nil {
 			return nil, err
 		}
 		result = append(result, d)

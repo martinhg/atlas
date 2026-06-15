@@ -40,6 +40,16 @@ func (m *mockRepoStore) GetRepositoriesByOrgID(_ context.Context, _ uuid.UUID, q
 	return m.repos, m.total, nil
 }
 
+func (m *mockRepoStore) GetRepoByName(_ context.Context, _ uuid.UUID, _ string) (*Repository, error) {
+	if m.listErr != nil {
+		return nil, m.listErr
+	}
+	if len(m.repos) > 0 {
+		return &m.repos[0], nil
+	}
+	return nil, fmt.Errorf("not found")
+}
+
 type mockOrgResolver struct {
 	orgID uuid.UUID
 	found bool

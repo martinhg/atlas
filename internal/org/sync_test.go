@@ -56,6 +56,10 @@ func (m *mockCatalogStore) GetRepositoriesByOrgID(_ context.Context, _ uuid.UUID
 	return nil, 0, nil
 }
 
+func (m *mockCatalogStore) GetRepoByName(_ context.Context, _ uuid.UUID, _ string) (*catalog.Repository, error) {
+	return nil, nil
+}
+
 func newMockGitHubServer(repos []*gogithub.Repository, statusCode int) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if statusCode != 0 && statusCode != http.StatusOK {

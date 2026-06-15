@@ -4,6 +4,7 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import DashboardPage from "@/components/DashboardPage";
 import { GitHubCallbackPage } from "@/pages/GitHubCallbackPage";
 import { RepoListPage } from "@/features/catalog/RepoListPage";
+import { RepoDetailPage } from "@/features/catalog/RepoDetailPage";
 import { DependencyListPage } from "@/features/dependencies/DependencyListPage";
 import { DependencyDetailPage } from "@/features/dependencies/DependencyDetailPage";
 import { OwnershipListPage } from "@/features/ownership/OwnershipListPage";
@@ -31,6 +32,14 @@ export const router = createBrowserRouter([
     element: (
       <AuthGuard>
         {(_user, onLogout) => <RepoListPage onLogout={onLogout} />}
+      </AuthGuard>
+    ),
+  },
+  {
+    path: "/orgs/:slug/repos/:name",
+    element: (
+      <AuthGuard>
+        {(_user, onLogout) => <RepoDetailPage onLogout={onLogout} />}
       </AuthGuard>
     ),
   },

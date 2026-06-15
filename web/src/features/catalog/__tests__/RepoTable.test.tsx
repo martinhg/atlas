@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { RepoTable } from "@/features/catalog/RepoTable";
 import type { Repository } from "@/lib/api";
 
@@ -18,43 +19,51 @@ const makeRepo = (overrides: Partial<Repository> = {}): Repository => ({
   ...overrides,
 });
 
+function renderTable(repos: Repository[], slug = "test-org") {
+  return render(
+    <MemoryRouter>
+      <RepoTable repos={repos} slug={slug} />
+    </MemoryRouter>,
+  );
+}
+
 describe("RepoTable", () => {
   it("shows empty state when no repos", () => {
-    render(<RepoTable repos={[]} />);
+    renderTable([]);
     expect(screen.getByText(/no repositories found/i)).toBeInTheDocument();
   });
 
   it("renders table headers", () => {
-    render(<RepoTable repos={[makeRepo()]} />);
+    renderTable([makeRepo()]);
     expect(screen.getByText("Repository")).toBeInTheDocument();
     expect(screen.getByText("Language")).toBeInTheDocument();
     expect(screen.getByText("Branch")).toBeInTheDocument();
     expect(screen.getByText("Stars")).toBeInTheDocument();
   });
 
-  it("renders repo name and default branch", () => {
-    render(<RepoTable repos={[makeRepo({ name: "atlas", default_branch: "develop" })]} />);
-    expect(screen.getByText("atlas")).toBeInTheDocument();
-    expect(screen.getByText("develop")).toBeInTheDocument();
+  it("renders repo name as link to detail page", () => {
+    renderTable([makeRepo({ name: "atlas" })], "my-org");
+    const link = screen.getByRole("link", { name: "atlas" });
+    expect(link).toHaveAttribute("href", "/orgs/my-org/repos/atlas");
   });
 
   it("renders description when present", () => {
-    render(<RepoTable repos={[makeRepo({ description: "A cool project" })]} />);
+    renderTable([makeRepo({ description: "A cool project" })]);
     expect(screen.getByText("A cool project")).toBeInTheDocument();
   });
 
   it("renders language when present", () => {
-    render(<RepoTable repos={[makeRepo({ language: "Go" })]} />);
+    renderTable([makeRepo({ language: "Go" })]);
     expect(screen.getByText("Go")).toBeInTheDocument();
   });
 
   it("renders dash when no language", () => {
-    render(<RepoTable repos={[makeRepo({ language: undefined })]} />);
+    renderTable([makeRepo({ language: undefined })]);
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
   it("renders star count", () => {
-    render(<RepoTable repos={[makeRepo({ stars: 42 })]} />);
+    renderTable([makeRepo({ stars: 42 })]);
     expect(screen.getByText("42")).toBeInTheDocument();
   });
 
@@ -64,7 +73,7 @@ describe("RepoTable", () => {
       makeRepo({ id: "2", name: "repo-b" }),
       makeRepo({ id: "3", name: "repo-c" }),
     ];
-    render(<RepoTable repos={repos} />);
+    renderTable(repos);
     expect(screen.getByText("repo-a")).toBeInTheDocument();
     expect(screen.getByText("repo-b")).toBeInTheDocument();
     expect(screen.getByText("repo-c")).toBeInTheDocument();

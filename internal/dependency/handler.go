@@ -145,6 +145,46 @@ func (h *Handler) HandleGetDependency(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// repoDepResponse is the JSON envelope for the repo dependencies endpoint.
+type repoDepResponse struct {
+	Repo string          `json:"repo"`
+	Deps []RepoDepDetail `json:"dependencies"`
+}
+
+// HandleGetRepoDependencies handles GET /orgs/{slug}/repos/{name}/dependencies
+func (h *Handler) HandleGetRepoDependencies(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	name := chi.URLParam(r, "name")
+
+	orgID, found, err := h.orgResolver.GetOrgIDBySlug(r.Context(), slug)
+	if err != nil {
+		slog.Error("dependency handler: failed to resolve org slug", "slug", slug, "error", err)
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if !found {
+		jsonError(w, "organization not found", http.StatusNotFound)
+		return
+	}
+
+	deps, err := h.store.ListByRepoName(r.Context(), orgID, name)
+	if err != nil {
+		slog.Error("dependency handler: failed to list repo dependencies",
+			"org_id", orgID, "repo", name, "error", err)
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	if deps == nil {
+		deps = []RepoDepDetail{}
+	}
+
+	jsonOK(w, repoDepResponse{
+		Repo: name,
+		Deps: deps,
+	})
+}
+
 // jsonOK writes a 200 JSON response.
 func jsonOK(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")

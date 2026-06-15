@@ -98,6 +98,32 @@ func (h *Handler) HandleListRepos(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// HandleGetRepo handles GET /orgs/{slug}/repos/{name}
+func (h *Handler) HandleGetRepo(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	name := chi.URLParam(r, "name")
+
+	orgID, found, err := h.orgResolver.GetOrgIDBySlug(r.Context(), slug)
+	if err != nil {
+		slog.Error("failed to resolve org slug", "slug", slug, "error", err)
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if !found {
+		jsonError(w, "organization not found", http.StatusNotFound)
+		return
+	}
+
+	repo, err := h.repoStore.GetRepoByName(r.Context(), orgID, name)
+	if err != nil {
+		slog.Error("failed to get repo", "org_id", orgID, "name", name, "error", err)
+		jsonError(w, "repository not found", http.StatusNotFound)
+		return
+	}
+
+	jsonOK(w, repo)
+}
+
 // jsonOK writes a 200 JSON response.
 func jsonOK(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
