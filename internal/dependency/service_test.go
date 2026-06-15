@@ -42,15 +42,6 @@ type treeEntry struct {
 	SHA  string `json:"sha"`
 }
 
-// contentResponse is the minimal shape of a file content API response.
-type contentResponse struct {
-	Type     string `json:"type"`
-	Encoding string `json:"encoding"`
-	Content  string `json:"content"`
-	Name     string `json:"name"`
-	Path     string `json:"path"`
-}
-
 // TestSyncRepoDeps_filters_node_modules verifies that paths containing
 // node_modules/ are excluded from the package.json discovery.
 func TestSyncRepoDeps_filters_node_modules(t *testing.T) {
@@ -70,7 +61,7 @@ func TestSyncRepoDeps_filters_node_modules(t *testing.T) {
 					{Path: "src/index.ts", Type: "blob"},
 				},
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 			return
 		}
 
@@ -92,7 +83,7 @@ func TestSyncRepoDeps_filters_node_modules(t *testing.T) {
 				"name":     "package.json",
 				"path":     "package.json",
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 			return
 		}
 
@@ -135,7 +126,7 @@ func TestSyncRepoDeps_truncated_tree_processes_partial(t *testing.T) {
 					{Path: "package.json", Type: "blob"},
 				},
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 			return
 		}
 
@@ -149,7 +140,7 @@ func TestSyncRepoDeps_truncated_tree_processes_partial(t *testing.T) {
 				"name":     "package.json",
 				"path":     "package.json",
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 			return
 		}
 
@@ -189,7 +180,7 @@ func TestSyncRepoDeps_no_package_json_is_noop(t *testing.T) {
 					{Path: "README.md", Type: "blob"},
 				},
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 			return
 		}
 
