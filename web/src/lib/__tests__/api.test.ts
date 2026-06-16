@@ -9,6 +9,7 @@ import {
   fetchDependencyDetail,
   fetchOwnership,
   fetchOwnershipDetail,
+  analyzeImpact,
 } from "@/lib/api";
 
 vi.mock("@/lib/auth", () => ({
@@ -114,6 +115,51 @@ describe("fetchRepoDetail", () => {
   it("throws on failure", async () => {
     mockApiFetch.mockResolvedValue({ ok: false, status: 404 } as Response);
     await expect(fetchRepoDetail("my-org", "bad")).rejects.toThrow("Failed to fetch repository");
+  });
+});
+
+describe("analyzeImpact", () => {
+  it("posts dependency and ecosystem and returns blast radius", async () => {
+    const response = {
+      dependency: { name: "lodash", ecosystem: "npm" },
+      affected_repos: [
+        {
+          id: "repo-1",
+          name: "repo-name",
+          full_name: "org/repo-name",
+          version: "4.17.21",
+          dep_type: "direct",
+          teams: ["@org/team-frontend", "@user"],
+        },
+      ],
+      version_distribution: [
+        { version: "4.17.21", count: 5 },
+        { version: "4.17.15", count: 2 },
+      ],
+      risk_score: 7.5,
+      risk_level: "high",
+      total_repos: 7,
+      total_teams: 3,
+    };
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(response),
+    } as Response);
+
+    const result = await analyzeImpact("my-org", { dependency: "lodash", ecosystem: "npm" });
+    expect(result).toEqual(response);
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/orgs/my-org/impact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dependency: "lodash", ecosystem: "npm" }),
+    });
+  });
+
+  it("throws on failure", async () => {
+    mockApiFetch.mockResolvedValue({ ok: false, status: 500 } as Response);
+    await expect(
+      analyzeImpact("my-org", { dependency: "lodash", ecosystem: "npm" }),
+    ).rejects.toThrow("Failed to analyze impact");
   });
 });
 

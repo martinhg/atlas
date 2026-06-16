@@ -58,9 +58,18 @@ export function DependencyDetailPage({ onLogout }: Props) {
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         <div className="space-y-6">
-          <div>
-            <h2 className="text-2xl font-semibold">{pkgName}</h2>
-            <p className="text-zinc-500 text-sm mt-1">{ecosystem}</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold">{pkgName}</h2>
+              <p className="text-zinc-500 text-sm mt-1">{ecosystem}</p>
+            </div>
+            <Button asChild variant="outline" size="sm" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+              <Link
+                to={`/orgs/${slug}/impact?dependency=${encodeURIComponent(pkgName)}&ecosystem=${encodeURIComponent(ecosystem ?? "")}`}
+              >
+                Analyze Impact
+              </Link>
+            </Button>
           </div>
 
           {isPending && (

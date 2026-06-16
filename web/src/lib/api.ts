@@ -206,3 +206,54 @@ export async function fetchOwnershipDetail(
   if (!res.ok) throw new Error("Failed to fetch ownership detail");
   return res.json();
 }
+
+// --- Impact analysis types ---
+
+export type RiskLevel = "low" | "medium" | "high";
+
+export interface ImpactDependencyRef {
+  name: string;
+  ecosystem: string;
+}
+
+export interface ImpactAffectedRepo {
+  id: string;
+  name: string;
+  full_name: string;
+  version: string;
+  dep_type: string;
+  teams: string[];
+}
+
+export interface ImpactVersionDist {
+  version: string;
+  count: number;
+}
+
+export interface ImpactAnalysisRequest {
+  dependency: string;
+  ecosystem: string;
+}
+
+export interface ImpactAnalysisResponse {
+  dependency: ImpactDependencyRef;
+  affected_repos: ImpactAffectedRepo[];
+  version_distribution: ImpactVersionDist[];
+  risk_score: number;
+  risk_level: RiskLevel;
+  total_repos: number;
+  total_teams: number;
+}
+
+export async function analyzeImpact(
+  slug: string,
+  body: ImpactAnalysisRequest,
+): Promise<ImpactAnalysisResponse> {
+  const res = await apiFetch(`/api/v1/orgs/${slug}/impact`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error("Failed to analyze impact");
+  return res.json();
+}

@@ -31,6 +31,7 @@ Each domain lives in its own package under `internal/` and follows the same stru
 | `catalog` | Repository storage and listing |
 | `dependency` | Dependency parsing (npm), storage, and querying |
 | `ownership` | CODEOWNERS parsing, ownership storage, and querying |
+| `impact` | Blast radius analysis: dependency → affected repos → affected teams, risk scoring |
 | `search` (via existing packages) | ILIKE filtering on repos and dependencies via `?q=` query param |
 | `platform/config` | Environment variable loading via godotenv |
 | `platform/database` | pgxpool connection, custom migration runner with advisory locking |
@@ -67,6 +68,7 @@ All API routes live under `/api/v1` and are registered in `cmd/atlas-server/main
 /api/v1/orgs/{slug}/dependencies/{eco}/* GET  — Dependency detail
 /api/v1/orgs/{slug}/ownership            GET  — List ownership (paginated)
 /api/v1/orgs/{slug}/ownership/{repo}     GET  — Ownership detail for a repo
+/api/v1/orgs/{slug}/impact               POST — Impact analysis (blast radius)
 ```
 
 All org-scoped routes use `{slug}` (human-readable) as the org identifier. Handlers resolve slug → UUID internally via `OrgResolver`.
@@ -117,9 +119,10 @@ React 19, Vite 8, TypeScript, Tailwind CSS v4, shadcn/ui, TanStack Query v5.
 web/src/
 ├── components/          Shared components (DashboardPage, LoginPage, AuthGuard)
 │   └── ui/              shadcn primitives (Button, Card, Avatar, Input)
-├── features/            Feature modules (catalog, dependencies, ownership)
+├── features/            Feature modules (catalog, dependencies, ownership, impact)
 │   ├── catalog/         RepoListPage, RepoDetailPage, RepoTable, useRepos, useRepoDetail, useRepoDeps
 │   ├── dependencies/    DependencyListPage, DependencyDetailPage, hooks, tables
+│   ├── impact/          ImpactAnalysisPage, ImpactResultTable, useImpactAnalysis
 │   └── ownership/       OwnershipListPage, OwnershipDetailPage, hooks, tables with type badges
 ├── hooks/               Shared hooks (useOrgs)
 ├── lib/                 Utilities (api.ts, auth.ts, query-client.ts)
@@ -140,11 +143,12 @@ web/src/
 
 ```
 Login → Dashboard → Repositories (per org) → Repository Detail (deps + ownership)
-                  → Dependencies (per org) → Dependency Detail
+                  → Dependencies (per org) → Dependency Detail → Impact Analysis (pre-filled)
                   → Ownership (per org)    → Ownership Detail (per repo)
+                  → Impact Analysis (per org) — form: dependency + ecosystem → blast radius results
 ```
 
-Cross-links exist between Dashboard, Repositories, Dependencies, and Ownership pages via breadcrumb navigation.
+Cross-links exist between Dashboard, Repositories, Dependencies, Ownership, and Impact Analysis pages via breadcrumb navigation. Dependency Detail has an "Analyze Impact" button that navigates to Impact Analysis pre-filled.
 
 ## Data Model
 
@@ -213,3 +217,10 @@ GitHub Actions runs on every PR and push to main:
 | Feature-based frontend | Each domain (catalog, dependencies) is self-contained with its own pages, hooks, and components |
 | pnpm only | Security-first: frozen lockfile, `ignore-scripts=true`, registry enforcement |
 | ILIKE over FTS for search | At <1000 repos per org, ILIKE is <5ms; `text_pattern_ops` indexes accelerate prefix queries; pg_trgm is the documented upgrade path |
+| Apps.ListRepos over ListByOrg | Works for both organization and personal GitHub accounts; ListByOrg 404s on personal accounts |
+| Normalized dependency model | `dependencies` + `repo_dependencies` junction avoids duplicate rows, enables `repo_count` aggregation |
+
+## Releases
+
+- **v1.0.0** (PR #29) — MVP Phase 1: auth, catalog, dependencies, ownership, search
+- **v1.0.1** (PR #32) — Hotfixes: personal GitHub account support, auth token refresh, sync race conditions
