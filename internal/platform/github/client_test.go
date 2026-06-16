@@ -82,12 +82,12 @@ func TestListInstallationRepos_paginates(t *testing.T) {
 		page := r.URL.Query().Get("page")
 		if page == "" || page == "1" {
 			w.Header().Set("Link", fmt.Sprintf(`<%s?page=2&per_page=100>; rel="next"`, "http://"+r.Host+r.URL.Path))
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"total_count":  3,
 				"repositories": page1,
 			})
 		} else {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"total_count":  3,
 				"repositories": page2,
 			})
@@ -117,7 +117,7 @@ func TestListInstallationRepos_paginates(t *testing.T) {
 func TestListInstallationRepos_empty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"total_count":  0,
 			"repositories": []*gogithub.Repository{},
 		})

@@ -68,7 +68,7 @@ func newMockGitHubServer(repos []*gogithub.Repository, statusCode int) *httptest
 		}
 		w.Header().Set("Content-Type", "application/json")
 		count := len(repos)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"total_count":  count,
 			"repositories": repos,
 		})
