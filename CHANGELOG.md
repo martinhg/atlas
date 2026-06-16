@@ -7,6 +7,16 @@ and this project adheres to [Conventional Commits](https://www.conventionalcommi
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-06-15
+
+### Fixed
+
+- Sync now works with personal GitHub accounts, not just organizations (#31)
+- Dependency sync race condition (`no rows in result set`) on concurrent upserts (#31)
+- Dependency sync deadlocks via consistent lock ordering (#31)
+- Token refresh on full-page navigation when in-memory access token is lost (#31)
+- Private key env var parsing with base64 padding variants and trailing whitespace (#31)
+
 ## [1.0.0] - 2026-06-15
 
 MVP Phase 1 complete — Atlas is a usable Engineering Intelligence Platform.
