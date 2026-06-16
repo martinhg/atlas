@@ -139,7 +139,7 @@ func (h *Handler) HandleConnect(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			slog.Error("failed to create installation client for sync", "error", err)
 		} else {
-			go syncRepos(installClient, h.orgStore, h.catalogStore, h.depSyncer, h.ownershipSyncer, org.ID, org.Slug)
+			go syncRepos(installClient, h.orgStore, h.catalogStore, h.depSyncer, h.ownershipSyncer, org.ID)
 		}
 	}
 
@@ -207,7 +207,7 @@ func (h *Handler) HandleGitHubWebhook(w http.ResponseWriter, r *http.Request) {
 		if h.catalogStore != nil {
 			installClient, err := ghplatform.NewInstallationClient(h.ghAppID, event.Installation.ID, h.ghPrivateKey)
 			if err == nil {
-				go syncRepos(installClient, h.orgStore, h.catalogStore, h.depSyncer, h.ownershipSyncer, existing.ID, existing.Slug)
+				go syncRepos(installClient, h.orgStore, h.catalogStore, h.depSyncer, h.ownershipSyncer, existing.ID)
 			}
 		}
 		w.WriteHeader(http.StatusOK)

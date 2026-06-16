@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -54,12 +55,15 @@ func Load() (*Config, error) {
 	}
 	cfg.GitHubAppID = appID
 
-	privateKeyRaw := os.Getenv("GITHUB_APP_PRIVATE_KEY")
+	privateKeyRaw := strings.TrimSpace(os.Getenv("GITHUB_APP_PRIVATE_KEY"))
 	if privateKeyRaw == "" {
 		return nil, fmt.Errorf("GITHUB_APP_PRIVATE_KEY is required")
 	}
-	// Attempt base64 decode first; fall back to raw string
+	// Attempt base64 decode (try standard then raw/no-padding); fall back to raw PEM string
 	decoded, decodeErr := base64.StdEncoding.DecodeString(privateKeyRaw)
+	if decodeErr != nil {
+		decoded, decodeErr = base64.RawStdEncoding.DecodeString(privateKeyRaw)
+	}
 	if decodeErr != nil {
 		cfg.GitHubAppPrivateKey = []byte(privateKeyRaw)
 	} else {
