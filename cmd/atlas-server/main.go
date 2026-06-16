@@ -17,6 +17,7 @@ import (
 	"github.com/nesbite/atlas/internal/auth"
 	"github.com/nesbite/atlas/internal/catalog"
 	"github.com/nesbite/atlas/internal/dependency"
+	"github.com/nesbite/atlas/internal/impact"
 	"github.com/nesbite/atlas/internal/org"
 	"github.com/nesbite/atlas/internal/ownership"
 	"github.com/nesbite/atlas/internal/platform/config"
@@ -86,6 +87,9 @@ func main() {
 	ownershipService := ownership.NewService(ownershipStore)
 	ownershipHandler := ownership.NewHandler(ownershipStore, &orgStoreResolver{store: orgStore})
 
+	impactStore := impact.NewStore(pool)
+	impactHandler := impact.NewHandler(impactStore, &orgStoreResolver{store: orgStore})
+
 	orgHandler := org.NewHandler(
 		orgStore,
 		catalogStore,
@@ -136,6 +140,7 @@ func main() {
 			r.Get("/orgs/{slug}/dependencies/{ecosystem}/*", depHandler.HandleGetDependency)
 			r.Get("/orgs/{slug}/ownership", ownershipHandler.HandleListOwnership)
 			r.Get("/orgs/{slug}/ownership/{repo}", ownershipHandler.HandleGetRepoOwnership)
+			r.Post("/orgs/{slug}/impact", impactHandler.HandleAnalyzeImpact)
 		})
 	})
 
