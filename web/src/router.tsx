@@ -9,6 +9,7 @@ import { DependencyListPage } from "@/features/dependencies/DependencyListPage";
 import { DependencyDetailPage } from "@/features/dependencies/DependencyDetailPage";
 import { OwnershipListPage } from "@/features/ownership/OwnershipListPage";
 import { OwnershipDetailPage } from "@/features/ownership/OwnershipDetailPage";
+import { ImpactAnalysisPage } from "@/features/impact/ImpactAnalysisPage";
 
 export const router = createBrowserRouter([
   {
@@ -72,6 +73,14 @@ export const router = createBrowserRouter([
     element: (
       <AuthGuard>
         {(_user, onLogout) => <OwnershipDetailPage onLogout={onLogout} />}
+      </AuthGuard>
+    ),
+  },
+  {
+    path: "/orgs/:slug/impact",
+    element: (
+      <AuthGuard>
+        {(_user, onLogout) => <ImpactAnalysisPage onLogout={onLogout} />}
       </AuthGuard>
     ),
   },

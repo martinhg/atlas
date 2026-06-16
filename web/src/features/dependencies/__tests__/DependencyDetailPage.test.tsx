@@ -128,4 +128,17 @@ describe("DependencyDetailPage", () => {
     expect(screen.getByRole("heading", { name: "@types/react" })).toBeInTheDocument();
     expect(mockUseDetail).toHaveBeenCalledWith("test-org", "npm", "@types/react");
   });
+
+  it("renders an Analyze Impact link pre-filled with the dependency and ecosystem", () => {
+    mockUseDetail.mockReturnValue({
+      data: mockRepos,
+      isPending: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useDependencyDetail>);
+
+    renderPage("test-org", "npm", "react");
+    expect(
+      screen.getByRole("link", { name: /analyze impact/i }),
+    ).toHaveAttribute("href", "/orgs/test-org/impact?dependency=react&ecosystem=npm");
+  });
 });
