@@ -2,6 +2,7 @@ package dependency
 
 import (
 	"context"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -67,21 +68,20 @@ func (s *Store) SyncRepoDependencies(ctx context.Context, repoID uuid.UUID, deps
 		return tx.Commit(ctx)
 	}
 
-	// Step 2: batch-upsert all (ecosystem, name) pairs into dependencies using
-	// a CTE that avoids write locks on existing rows.
+	sort.Slice(deps, func(i, j int) bool {
+		if deps[i].Ecosystem != deps[j].Ecosystem {
+			return deps[i].Ecosystem < deps[j].Ecosystem
+		}
+		return deps[i].Name < deps[j].Name
+	})
+
 	batch := &pgx.Batch{}
 	for _, dep := range deps {
 		batch.Queue(`
-			WITH ins AS (
-				INSERT INTO dependencies (ecosystem, name)
-				VALUES ($1, $2)
-				ON CONFLICT DO NOTHING
-				RETURNING id
-			)
-			SELECT id FROM ins
-			UNION ALL
-			SELECT id FROM dependencies WHERE ecosystem = $1 AND name = $2
-			LIMIT 1
+			INSERT INTO dependencies (ecosystem, name)
+			VALUES ($1, $2)
+			ON CONFLICT (ecosystem, name) DO UPDATE SET name = EXCLUDED.name
+			RETURNING id
 		`, dep.Ecosystem, dep.Name)
 	}
 

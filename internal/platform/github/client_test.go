@@ -67,8 +67,7 @@ func TestNewInstallationClient_invalidPrivateKey(t *testing.T) {
 	}
 }
 
-func TestListOrgRepos_paginates(t *testing.T) {
-	// Build a mock GitHub API server with two pages of repos.
+func TestListInstallationRepos_paginates(t *testing.T) {
 	page1 := []*gogithub.Repository{
 		{ID: gogithub.Ptr(int64(1)), Name: gogithub.Ptr("repo-1")},
 		{ID: gogithub.Ptr(int64(2)), Name: gogithub.Ptr("repo-2")},
@@ -82,40 +81,46 @@ func TestListOrgRepos_paginates(t *testing.T) {
 
 		page := r.URL.Query().Get("page")
 		if page == "" || page == "1" {
-			// Include Link header pointing to page 2
 			w.Header().Set("Link", fmt.Sprintf(`<%s?page=2&per_page=100>; rel="next"`, "http://"+r.Host+r.URL.Path))
-			json.NewEncoder(w).Encode(page1)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"total_count":  3,
+				"repositories": page1,
+			})
 		} else {
-			json.NewEncoder(w).Encode(page2)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"total_count":  3,
+				"repositories": page2,
+			})
 		}
 	}))
 	defer server.Close()
 
-	// Create a client that points to the mock server
 	httpClient := &http.Client{}
 	client := gogithub.NewClient(httpClient).WithAuthToken("test-token")
 
-	// Override the base URL to use our test server
 	serverURL := server.URL + "/"
 	client, err := client.WithEnterpriseURLs(serverURL, serverURL)
 	if err != nil {
 		t.Fatalf("failed to set enterprise URLs: %v", err)
 	}
 
-	repos, err := ListOrgRepos(context.Background(), client, "test-org")
+	repos, err := ListInstallationRepos(context.Background(), client)
 	if err != nil {
-		t.Fatalf("ListOrgRepos returned error: %v", err)
+		t.Fatalf("ListInstallationRepos returned error: %v", err)
 	}
 
 	if len(repos) != 3 {
-		t.Errorf("ListOrgRepos returned %d repos, want 3", len(repos))
+		t.Errorf("ListInstallationRepos returned %d repos, want 3", len(repos))
 	}
 }
 
-func TestListOrgRepos_empty(t *testing.T) {
+func TestListInstallationRepos_empty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]*gogithub.Repository{})
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"total_count":  0,
+			"repositories": []*gogithub.Repository{},
+		})
 	}))
 	defer server.Close()
 
@@ -128,11 +133,11 @@ func TestListOrgRepos_empty(t *testing.T) {
 		t.Fatalf("failed to set enterprise URLs: %v", err)
 	}
 
-	repos, err := ListOrgRepos(context.Background(), client, "test-org")
+	repos, err := ListInstallationRepos(context.Background(), client)
 	if err != nil {
-		t.Fatalf("ListOrgRepos returned error: %v", err)
+		t.Fatalf("ListInstallationRepos returned error: %v", err)
 	}
 	if len(repos) != 0 {
-		t.Errorf("ListOrgRepos returned %d repos, want 0", len(repos))
+		t.Errorf("ListInstallationRepos returned %d repos, want 0", len(repos))
 	}
 }

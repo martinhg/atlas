@@ -33,24 +33,19 @@ func NewInstallationClient(appID, installationID int64, privateKey []byte) (*gog
 	return gogithub.NewClient(httpClient), nil
 }
 
-// ListOrgRepos lists all repositories for the given organization, paginating
-// through all pages. Returns the combined list of all repositories.
-func ListOrgRepos(ctx context.Context, client *gogithub.Client, org string) ([]*gogithub.Repository, error) {
+// ListInstallationRepos lists all repositories accessible to the authenticated
+// GitHub App installation. Works for both organization and personal accounts.
+func ListInstallationRepos(ctx context.Context, client *gogithub.Client) ([]*gogithub.Repository, error) {
 	var allRepos []*gogithub.Repository
 
-	opts := &gogithub.RepositoryListByOrgOptions{
-		ListOptions: gogithub.ListOptions{
-			PerPage: 100,
-			Page:    1,
-		},
-	}
+	opts := &gogithub.ListOptions{PerPage: 100, Page: 1}
 
 	for {
-		repos, resp, err := client.Repositories.ListByOrg(ctx, org, opts)
+		result, resp, err := client.Apps.ListRepos(ctx, opts)
 		if err != nil {
-			return nil, fmt.Errorf("list org repos (page %d): %w", opts.Page, err)
+			return nil, fmt.Errorf("list installation repos (page %d): %w", opts.Page, err)
 		}
-		allRepos = append(allRepos, repos...)
+		allRepos = append(allRepos, result.Repositories...)
 
 		if resp.NextPage == 0 {
 			break

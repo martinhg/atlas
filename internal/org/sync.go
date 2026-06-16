@@ -25,18 +25,23 @@ type OwnershipSyncer interface {
 	SyncRepoOwnership(ctx context.Context, ghClient *gogithub.Client, repoID uuid.UUID, owner, repo string) error
 }
 
-func syncRepos(ghClient *gogithub.Client, orgStore OrgStore, catalogStore catalog.RepoStore, depSyncer DepSyncer, ownershipSyncer OwnershipSyncer, orgID uuid.UUID, orgSlug string) {
+func syncRepos(ghClient *gogithub.Client, orgStore OrgStore, catalogStore catalog.RepoStore, depSyncer DepSyncer, ownershipSyncer OwnershipSyncer, orgID uuid.UUID) {
 	ctx := context.Background()
 
-	repos, _, err := ghClient.Repositories.ListByOrg(ctx, orgSlug, &gogithub.RepositoryListByOrgOptions{
-		ListOptions: gogithub.ListOptions{PerPage: 100},
-	})
-	if err != nil {
-		slog.Error("sync: failed to list repos from GitHub", "org_id", orgID, "error", err)
-		return
+	var allRepos []*gogithub.Repository
+	opts := &gogithub.ListOptions{PerPage: 100, Page: 1}
+	for {
+		result, resp, err := ghClient.Apps.ListRepos(ctx, opts)
+		if err != nil {
+			slog.Error("sync: failed to list repos from GitHub", "org_id", orgID, "error", err)
+			return
+		}
+		allRepos = append(allRepos, result.Repositories...)
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
 	}
-
-	allRepos := repos
 
 	var syncErrors int
 	for _, r := range allRepos {
@@ -64,17 +69,17 @@ func syncRepos(ghClient *gogithub.Client, orgStore OrgStore, catalogStore catalo
 			continue
 		}
 
+		owner := r.GetOwner().GetLogin()
+
 		if depSyncer != nil && upserted != nil {
-			if err := depSyncer.SyncRepoDeps(ctx, ghClient, upserted.ID, orgSlug, r.GetName(), r.GetDefaultBranch()); err != nil {
+			if err := depSyncer.SyncRepoDeps(ctx, ghClient, upserted.ID, owner, r.GetName(), r.GetDefaultBranch()); err != nil {
 				slog.Error("sync: dep sync failed for repo", "repo", r.GetFullName(), "error", err)
-				// error isolation — continue processing remaining repos
 			}
 		}
 
 		if ownershipSyncer != nil && upserted != nil {
-			if err := ownershipSyncer.SyncRepoOwnership(ctx, ghClient, upserted.ID, orgSlug, r.GetName()); err != nil {
+			if err := ownershipSyncer.SyncRepoOwnership(ctx, ghClient, upserted.ID, owner, r.GetName()); err != nil {
 				slog.Error("sync: ownership sync failed", "repo", r.GetFullName(), "error", err)
-				// error isolation — continue processing remaining repos
 			}
 		}
 	}
