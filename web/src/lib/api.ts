@@ -4,6 +4,8 @@ export interface DependencyWithCount {
   ecosystem: string;
   name: string;
   repo_count: number;
+  vuln_count: number;
+  max_severity: SeverityLevel | "";
 }
 
 export interface DepDetail {
@@ -255,5 +257,74 @@ export async function analyzeImpact(
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error("Failed to analyze impact");
+  return res.json();
+}
+
+// --- Vulnerability types ---
+
+export type SeverityLevel = "critical" | "high" | "medium" | "low" | "unknown";
+
+export interface VulnerabilityListItem {
+  id: string;
+  osv_id: string;
+  cve_id?: string;
+  ecosystem: string;
+  package_name: string;
+  severity: SeverityLevel;
+  cvss_score?: number;
+  summary?: string;
+  published_at?: string;
+  affected_repo_count: number;
+  affected_team_count: number;
+}
+
+export interface VulnerabilityListResponse {
+  data: VulnerabilityListItem[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export interface VulnAffectedRepo {
+  repo_id: string;
+  repo_name: string;
+  dep_version: string;
+  dep_type: string;
+  teams: string[];
+}
+
+export interface VulnerabilityDetail extends VulnerabilityListItem {
+  cvss_vector?: string;
+  details?: string;
+  fixed_version?: string;
+  introduced_version?: string;
+  affected_repos: VulnAffectedRepo[];
+}
+
+export async function fetchVulnerabilities(
+  slug: string,
+  page = 1,
+  perPage = 20,
+  severity = "",
+  packageName = "",
+): Promise<VulnerabilityListResponse> {
+  const params = new URLSearchParams({
+    page: String(page),
+    perPage: String(perPage),
+  });
+  if (severity) params.set("severity", severity);
+  if (packageName) params.set("package", packageName);
+  const res = await apiFetch(`/api/v1/orgs/${slug}/vulnerabilities?${params}`);
+  if (!res.ok) throw new Error("Failed to fetch vulnerabilities");
+  return res.json();
+}
+
+export async function fetchVulnerabilityDetail(
+  slug: string,
+  id: string,
+): Promise<VulnerabilityDetail | null> {
+  const res = await apiFetch(`/api/v1/orgs/${slug}/vulnerabilities/${id}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("Failed to fetch vulnerability detail");
   return res.json();
 }

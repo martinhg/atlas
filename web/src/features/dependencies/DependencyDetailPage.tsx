@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { clearAuth } from "@/lib/auth";
 import { useDependencyDetail } from "./useDependencyDetail";
 import { DependencyDetailTable } from "./DependencyDetailTable";
+import { DependencyVulnerabilities } from "./DependencyVulnerabilities";
 
 interface Props {
   onLogout: () => void;
@@ -83,6 +84,8 @@ export function DependencyDetailPage({ onLogout }: Props) {
           {data !== undefined && !isPending && !isError && (
             <DependencyDetailTable repos={data} />
           )}
+
+          {slug && pkgName && <DependencyVulnerabilities slug={slug} name={pkgName} />}
         </div>
       </main>
     </div>
