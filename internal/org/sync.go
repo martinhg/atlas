@@ -25,7 +25,15 @@ type OwnershipSyncer interface {
 	SyncRepoOwnership(ctx context.Context, ghClient *gogithub.Client, repoID uuid.UUID, owner, repo string) error
 }
 
-func syncRepos(ghClient *gogithub.Client, orgStore OrgStore, catalogStore catalog.RepoStore, depSyncer DepSyncer, ownershipSyncer OwnershipSyncer, orgID uuid.UUID) {
+// VulnSyncer is a local interface for vulnerability sync. vuln.Service satisfies
+// it. It runs once per org after the repo loop to batch-query OSV.dev for all
+// dependencies. Using a local interface keeps the org package decoupled from the
+// vuln package (Go structural typing).
+type VulnSyncer interface {
+	SyncOrgVulns(ctx context.Context, orgID uuid.UUID) error
+}
+
+func syncRepos(ghClient *gogithub.Client, orgStore OrgStore, catalogStore catalog.RepoStore, depSyncer DepSyncer, ownershipSyncer OwnershipSyncer, vulnSyncer VulnSyncer, orgID uuid.UUID) {
 	ctx := context.Background()
 
 	var allRepos []*gogithub.Repository
@@ -81,6 +89,14 @@ func syncRepos(ghClient *gogithub.Client, orgStore OrgStore, catalogStore catalo
 			if err := ownershipSyncer.SyncRepoOwnership(ctx, ghClient, upserted.ID, owner, r.GetName()); err != nil {
 				slog.Error("sync: ownership sync failed", "repo", r.GetFullName(), "error", err)
 			}
+		}
+	}
+
+	// Vulnerability sync runs once per org after all repos' deps are synced.
+	// It is additive: a failure is logged but MUST NOT abort the org sync.
+	if vulnSyncer != nil {
+		if err := vulnSyncer.SyncOrgVulns(ctx, orgID); err != nil {
+			slog.Error("sync: vuln sync failed", "org_id", orgID, "error", err)
 		}
 	}
 

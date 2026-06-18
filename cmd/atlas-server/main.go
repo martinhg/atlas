@@ -22,6 +22,7 @@ import (
 	"github.com/nesbite/atlas/internal/ownership"
 	"github.com/nesbite/atlas/internal/platform/config"
 	"github.com/nesbite/atlas/internal/platform/database"
+	"github.com/nesbite/atlas/internal/vuln"
 	"github.com/nesbite/atlas/migrations"
 )
 
@@ -90,11 +91,16 @@ func main() {
 	impactStore := impact.NewStore(pool)
 	impactHandler := impact.NewHandler(impactStore, &orgStoreResolver{store: orgStore})
 
+	vulnStore := vuln.NewStore(pool)
+	vulnService := vuln.NewService(vulnStore, vuln.NewOSVClient())
+	vulnHandler := vuln.NewHandler(vulnStore, &orgStoreResolver{store: orgStore})
+
 	orgHandler := org.NewHandler(
 		orgStore,
 		catalogStore,
 		depService,
 		ownershipService,
+		vulnService,
 		cfg.GitHubAppID,
 		cfg.GitHubAppPrivateKey,
 		cfg.GitHubWebhookSecret,
@@ -141,6 +147,8 @@ func main() {
 			r.Get("/orgs/{slug}/ownership", ownershipHandler.HandleListOwnership)
 			r.Get("/orgs/{slug}/ownership/{repo}", ownershipHandler.HandleGetRepoOwnership)
 			r.Post("/orgs/{slug}/impact", impactHandler.HandleAnalyzeImpact)
+			r.Get("/orgs/{slug}/vulnerabilities", vulnHandler.HandleListVulnerabilities)
+			r.Get("/orgs/{slug}/vulnerabilities/{id}", vulnHandler.HandleGetVulnerability)
 		})
 	})
 
