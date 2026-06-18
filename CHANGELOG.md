@@ -7,6 +7,23 @@ and this project adheres to [Conventional Commits](https://www.conventionalcommi
 
 ## [Unreleased]
 
+### Added
+
+- Vulnerabilities & Risk Dashboard (Epic 8) — OSV.dev integration tracking known
+  vulnerabilities across org dependencies
+  - Migration 000007: `vulnerabilities` + `dependency_vulnerabilities` tables
+  - `internal/vuln/` domain: OSV batch client (two-phase query + hydrate), sync
+    service, semver matching, store, and list/detail handlers
+  - Vuln sync hooked into org sync via a non-blocking `VulnSyncer`
+  - Vulnerability dashboard: list page with severity filter + detail page with
+    affected repositories
+  - Dependency pages: vuln count column with highest-severity badge, and a
+    "Known Vulnerabilities" section on the dependency detail page
+  - API: `GET /orgs/{slug}/vulnerabilities` (`?severity=`, `?package=`) and
+    `GET /orgs/{slug}/vulnerabilities/{id}`
+  - Decisions and deferred technical debt documented in
+    `docs/epics/epic-8-vulnerabilities/`
+
 ## [1.0.1] - 2026-06-15
 
 ### Fixed
