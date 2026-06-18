@@ -117,3 +117,26 @@ pre-existing findings mean `golangci-lint run ./...` is not green repo-wide.
 
 **Follow-up:** a small dedicated cleanup change to wrap the unchecked errors
 (`_ = ...` or `//nolint` with rationale).
+
+---
+
+## TD-9 — `undici` security override bundled into the Epic 8 PR
+
+**What:** during PR #35 review, CI failed on `pnpm audit --audit-level=high` due to a
+HIGH advisory in `undici` (GHSA-vmh5-mc38-953g), a transitive test-only dependency
+(`vitest → jsdom → undici@7.27.2`). It was fixed by forcing `undici: "^7.28.0"` via
+`web/pnpm-workspace.yaml` `overrides` and committed **inside the Epic 8 PR** to
+unblock CI, rather than as its own change.
+
+**Why it's debt:**
+- It is unrelated to Epic 8 — a pre-existing transitive advisory that would have
+  failed `main` too. Bundling it muddies the epic's history.
+- pnpm 10+ no longer reads `pnpm.overrides` from `package.json`; the override only
+  takes effect in `pnpm-workspace.yaml` (a sharp edge worth remembering).
+- The `^7.28.0` pin is a manual override that should be removed once `jsdom`/`vitest`
+  naturally resolve a patched `undici`, otherwise it silently masks future bumps.
+
+**Follow-up:**
+- Treat dependency security bumps as their own `chore(deps)` PRs going forward.
+- Periodically revisit the `undici` override and drop it when the upstream chain
+  ships a patched version, so the pin doesn't go stale.
