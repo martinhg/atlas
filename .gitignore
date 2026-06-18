@@ -54,3 +54,4 @@ Thumbs.db
 
 # Local-only docs
 *.local.md
+docs/

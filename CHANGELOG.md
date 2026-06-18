@@ -21,8 +21,6 @@ and this project adheres to [Conventional Commits](https://www.conventionalcommi
     "Known Vulnerabilities" section on the dependency detail page
   - API: `GET /orgs/{slug}/vulnerabilities` (`?severity=`, `?package=`) and
     `GET /orgs/{slug}/vulnerabilities/{id}`
-  - Decisions and deferred technical debt documented in
-    `docs/epics/epic-8-vulnerabilities/`
 
 ## [1.0.1] - 2026-06-15
 
