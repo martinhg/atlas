@@ -26,13 +26,17 @@ type RepoDependency struct {
 	CreatedAt  time.Time `json:"created_at"`
 }
 
-// DependencyWithCount is returned by the list endpoint and includes
-// the number of repos in the org that use this dependency.
+// DependencyWithCount is returned by the list endpoint and includes the number
+// of repos in the org that use this dependency, plus a vulnerability summary:
+// VulnCount is the number of known vulnerabilities affecting the dependency and
+// MaxSeverity is the highest severity among them ("" when none).
 type DependencyWithCount struct {
-	ID        uuid.UUID `json:"id"`
-	Ecosystem string    `json:"ecosystem"`
-	Name      string    `json:"name"`
-	RepoCount int       `json:"repo_count"`
+	ID          uuid.UUID `json:"id"`
+	Ecosystem   string    `json:"ecosystem"`
+	Name        string    `json:"name"`
+	RepoCount   int       `json:"repo_count"`
+	VulnCount   int       `json:"vuln_count"`
+	MaxSeverity string    `json:"max_severity"`
 }
 
 // DepDetail is returned by the detail endpoint and describes one repo's

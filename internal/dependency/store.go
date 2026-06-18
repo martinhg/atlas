@@ -141,13 +141,31 @@ func (s *Store) ListByOrg(ctx context.Context, orgID uuid.UUID, q string, page, 
 
 	// Single query with COUNT(*) OVER() to avoid race between COUNT and SELECT.
 	// $4 = q: when non-empty, filter dependency name with ILIKE.
+	// The LEFT JOINs to the vulnerability tables add a per-dep vuln count and the
+	// highest severity (ranked numerically, then mapped back to its label).
 	rows, err := s.db.Query(ctx, `
 		SELECT d.id, d.ecosystem, d.name,
 		       COUNT(DISTINCT r.id) AS repo_count,
+		       COUNT(DISTINCT dv.vuln_id) AS vuln_count,
+		       CASE MAX(CASE v.severity
+		                  WHEN 'critical' THEN 5
+		                  WHEN 'high'     THEN 4
+		                  WHEN 'medium'   THEN 3
+		                  WHEN 'low'      THEN 2
+		                  WHEN 'unknown'  THEN 1
+		                  ELSE 0 END)
+		            WHEN 5 THEN 'critical'
+		            WHEN 4 THEN 'high'
+		            WHEN 3 THEN 'medium'
+		            WHEN 2 THEN 'low'
+		            WHEN 1 THEN 'unknown'
+		            ELSE '' END AS max_severity,
 		       COUNT(*) OVER() AS total
 		FROM dependencies d
 		JOIN repo_dependencies rd ON rd.dep_id = d.id
 		JOIN repositories r       ON r.id = rd.repo_id
+		LEFT JOIN dependency_vulnerabilities dv ON dv.dep_id = d.id
+		LEFT JOIN vulnerabilities v             ON v.id = dv.vuln_id
 		WHERE r.org_id = $1
 		  AND ($4 = '' OR d.name ILIKE '%' || $4 || '%')
 		GROUP BY d.id, d.ecosystem, d.name
@@ -163,7 +181,7 @@ func (s *Store) ListByOrg(ctx context.Context, orgID uuid.UUID, q string, page, 
 	result := make([]DependencyWithCount, 0)
 	for rows.Next() {
 		var d DependencyWithCount
-		if err := rows.Scan(&d.ID, &d.Ecosystem, &d.Name, &d.RepoCount, &total); err != nil {
+		if err := rows.Scan(&d.ID, &d.Ecosystem, &d.Name, &d.RepoCount, &d.VulnCount, &d.MaxSeverity, &total); err != nil {
 			return nil, 0, err
 		}
 		result = append(result, d)
