@@ -29,10 +29,13 @@ The dev server proxies `/api` requests to the Go backend at `http://localhost:80
 ```
 src/
 ├── components/          Shared components (DashboardPage, LoginPage, AuthGuard)
-│   └── ui/              shadcn primitives (Button, Card, Avatar)
+│   └── ui/              shadcn primitives (Button, Card, Avatar, Input)
 ├── features/            Feature modules, each self-contained
-│   ├── catalog/         Repository list page, table, and hooks
-│   └── dependencies/    Dependency list/detail pages, tables, and hooks
+│   ├── catalog/         Repository list/detail pages, table, and hooks
+│   ├── dependencies/    Dependency list/detail pages, tables, hooks, vuln badges
+│   ├── ownership/       Ownership list/detail pages, tables, and hooks
+│   ├── impact/          Impact analysis page, results table, and hook
+│   └── vulnerabilities/ Vulnerability dashboard (list/detail), SeverityBadge, hooks
 ├── hooks/               Shared hooks (useOrgs)
 ├── lib/                 Utilities
 │   ├── api.ts           API types and fetch functions
