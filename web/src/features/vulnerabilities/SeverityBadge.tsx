@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import type { SeverityLevel } from "@/lib/api";
 
 interface Props {
@@ -16,14 +17,11 @@ const severityStyles: Record<SeverityLevel, string> = {
 
 export function SeverityBadge({ severity, className }: Props) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium capitalize",
-        severityStyles[severity],
-        className,
-      )}
+    <Badge
+      variant="outline"
+      className={cn("capitalize", severityStyles[severity], className)}
     >
       {severity}
-    </span>
+    </Badge>
   );
 }
