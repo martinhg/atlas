@@ -51,9 +51,9 @@ func (s *Store) GetGraph(ctx context.Context, orgID uuid.UUID, f GraphFilters) (
 	if f.Team != "" {
 		teamClause = fmt.Sprintf(" AND EXISTS (SELECT 1 FROM repo_owners ro2 WHERE ro2.repo_id = r.id AND ro2.owner = $%d AND ro2.owner_type = 'team')", paramIdx)
 		args = append(args, f.Team)
-		paramIdx++
+		// Team is currently the last optional filter, so paramIdx is not
+		// advanced again. Increment here when adding further filter clauses.
 	}
-	_ = paramIdx // suppress "declared and not used" if no more args added
 
 	query := fmt.Sprintf(`
 		SELECT

@@ -106,26 +106,25 @@ func TestGraphStore_aggregateShape(t *testing.T) {
 	}
 }
 
-// TestGraphStore_ecosystemFilter verifies the ecosystem filter param is
-// accepted by the interface and passed without error.
-func TestGraphStore_ecosystemFilter(t *testing.T) {
-	store := &mockGraphStore{}
-	f := GraphFilters{Ecosystem: "npm"}
-	_, err := store.GetGraph(context.Background(), uuid.New(), f)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if f.Ecosystem != "npm" {
-		t.Errorf("Ecosystem filter not preserved: got %q", f.Ecosystem)
-	}
-}
-
-// TestGraphStore_teamFilter verifies team filter param shape.
-func TestGraphStore_teamFilter(t *testing.T) {
-	f := GraphFilters{Team: "@acme/backend"}
-	store := &mockGraphStore{}
-	_, err := store.GetGraph(context.Background(), uuid.New(), f)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+// TestGraphStore_filteredEmptyResult verifies the contract that a filtered
+// query yielding no matches returns a non-nil empty slice and no error, so the
+// handler can build an empty graph rather than treating it as a failure. This
+// covers the spec's "unknown ecosystem/team returns an empty graph" path.
+func TestGraphStore_filteredEmptyResult(t *testing.T) {
+	store := &mockGraphStore{aggregates: []depAggregate{}}
+	for _, f := range []GraphFilters{
+		{Ecosystem: "haskell"},
+		{Team: "@acme/does-not-exist"},
+	} {
+		result, err := store.GetGraph(context.Background(), uuid.New(), f)
+		if err != nil {
+			t.Fatalf("filter %+v: unexpected error: %v", f, err)
+		}
+		if result == nil {
+			t.Errorf("filter %+v: expected non-nil empty slice, got nil", f)
+		}
+		if len(result) != 0 {
+			t.Errorf("filter %+v: expected 0 aggregates, got %d", f, len(result))
+		}
 	}
 }
