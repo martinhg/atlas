@@ -12,6 +12,7 @@ import { OwnershipDetailPage } from "@/features/ownership/OwnershipDetailPage";
 import { ImpactAnalysisPage } from "@/features/impact/ImpactAnalysisPage";
 import { VulnerabilityListPage } from "@/features/vulnerabilities/VulnerabilityListPage";
 import { VulnerabilityDetailPage } from "@/features/vulnerabilities/VulnerabilityDetailPage";
+import GraphPage from "@/features/graph/GraphPage";
 
 export const router = createBrowserRouter([
   {
@@ -99,6 +100,14 @@ export const router = createBrowserRouter([
     element: (
       <AuthGuard>
         {(_user, onLogout) => <VulnerabilityDetailPage onLogout={onLogout} />}
+      </AuthGuard>
+    ),
+  },
+  {
+    path: "/orgs/:slug/graph",
+    element: (
+      <AuthGuard>
+        {(_user, onLogout) => <GraphPage onLogout={onLogout} />}
       </AuthGuard>
     ),
   },
