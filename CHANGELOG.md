@@ -7,20 +7,43 @@ and this project adheres to [Conventional Commits](https://www.conventionalcommi
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-06-19
+
+Deps → Impact → Risk. This release completes the chain: from "what depends on
+what" to "what breaks if I change it" to "which dependencies are vulnerable."
+
 ### Added
 
-- Vulnerabilities & Risk Dashboard (Epic 8) — OSV.dev integration tracking known
-  vulnerabilities across org dependencies
+- **Vulnerabilities & Risk Dashboard** (Epic 8) — OSV.dev integration tracking
+  known vulnerabilities across org dependencies (#35)
   - Migration 000007: `vulnerabilities` + `dependency_vulnerabilities` tables
   - `internal/vuln/` domain: OSV batch client (two-phase query + hydrate), sync
-    service, semver matching, store, and list/detail handlers
-  - Vuln sync hooked into org sync via a non-blocking `VulnSyncer`
+    service, semver range matching, store, and list/detail handlers
+  - Vuln sync hooked into org sync as a non-blocking per-org `VulnSyncer` step
   - Vulnerability dashboard: list page with severity filter + detail page with
-    affected repositories
-  - Dependency pages: vuln count column with highest-severity badge, and a
-    "Known Vulnerabilities" section on the dependency detail page
+    affected repositories and team attribution
+  - Dependency pages: vulnerability count column with highest-severity badge, and
+    a "Known Vulnerabilities" section on the dependency detail page
   - API: `GET /orgs/{slug}/vulnerabilities` (`?severity=`, `?package=`) and
     `GET /orgs/{slug}/vulnerabilities/{id}`
+- **Impact Analysis — Blast Radius** (Epic 6) — answer "what breaks if I change
+  dependency X?" (#33, #34)
+  - `internal/impact/` domain: single-query blast radius (dependency → repos →
+    teams) with heuristic risk scoring and version distribution
+  - API: `POST /orgs/{slug}/impact` returning affected repos, teams, version
+    spread, and a risk score/level
+  - Frontend: `ImpactAnalysisPage` with dependency/ecosystem form and results
+    table; "Analyze Impact" deep-link from the dependency detail page
+
+### Changed
+
+- Vulnerability sync runs after dependency sync in the org pipeline and never
+  blocks or rolls back the parent sync if OSV is unavailable.
+
+### Security
+
+- Forced `undici` to `>=7.28.0` via pnpm overrides to clear a high-severity
+  transitive advisory (GHSA-vmh5-mc38-953g) in the test toolchain.
 
 ## [1.0.1] - 2026-06-15
 

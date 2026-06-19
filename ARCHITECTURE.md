@@ -32,6 +32,7 @@ Each domain lives in its own package under `internal/` and follows the same stru
 | `dependency` | Dependency parsing (npm), storage, and querying |
 | `ownership` | CODEOWNERS parsing, ownership storage, and querying |
 | `impact` | Blast radius analysis: dependency → affected repos → affected teams, risk scoring |
+| `vuln` | OSV.dev vulnerability sync (batch query + hydrate), semver range matching, dashboard list/detail |
 | `search` (via existing packages) | ILIKE filtering on repos and dependencies via `?q=` query param |
 | `platform/config` | Environment variable loading via godotenv |
 | `platform/database` | pgxpool connection, custom migration runner with advisory locking |
@@ -69,6 +70,8 @@ All API routes live under `/api/v1` and are registered in `cmd/atlas-server/main
 /api/v1/orgs/{slug}/ownership            GET  — List ownership (paginated)
 /api/v1/orgs/{slug}/ownership/{repo}     GET  — Ownership detail for a repo
 /api/v1/orgs/{slug}/impact               POST — Impact analysis (blast radius)
+/api/v1/orgs/{slug}/vulnerabilities      GET  — List vulnerabilities (?severity, ?package)
+/api/v1/orgs/{slug}/vulnerabilities/{id} GET  — Vulnerability detail + affected repos
 ```
 
 All org-scoped routes use `{slug}` (human-readable) as the org identifier. Handlers resolve slug → UUID internally via `OrgResolver`.
@@ -93,6 +96,7 @@ When a GitHub App installation event is received (or a user connects an org):
 4. For each repo, if a `DepSyncer` is injected, it triggers dependency sync; if an `OwnershipSyncer` is injected, it triggers ownership sync
 5. `dependency.Service.SyncRepoDependencies` discovers `package.json` files via GitHub tree API, fetches content, parses, and batch-upserts dependencies
 6. `ownership.Service.SyncRepoOwnership` tries 3 CODEOWNERS paths (CODEOWNERS, .github/CODEOWNERS, docs/CODEOWNERS), parses, and batch-upserts ownership rows; errors are isolated per repo
+7. After the repo loop, if a `VulnSyncer` is injected, `vuln.Service.SyncOrgVulns` collects the org's unique dependencies, batch-queries OSV.dev (chunked at 100, then hydrates each vuln ID via `GET /v1/vulns/{id}`), matches semver ranges in Go, and rebuilds the `dependency_vulnerabilities` links. This step is non-blocking: an OSV failure is logged and never aborts or rolls back the dependency sync
 
 ### Migrations
 
@@ -105,6 +109,7 @@ SQL migrations live in `migrations/` and are auto-embedded via `embed.FS`. They 
 000004_create_dependencies.up.sql
 000005_create_repo_owners.up.sql
 000006_add_search_indexes.up.sql
+000007_create_vulnerabilities.up.sql
 ```
 
 ## Frontend
@@ -123,7 +128,8 @@ web/src/
 │   ├── catalog/         RepoListPage, RepoDetailPage, RepoTable, useRepos, useRepoDetail, useRepoDeps
 │   ├── dependencies/    DependencyListPage, DependencyDetailPage, hooks, tables
 │   ├── impact/          ImpactAnalysisPage, ImpactResultTable, useImpactAnalysis
-│   └── ownership/       OwnershipListPage, OwnershipDetailPage, hooks, tables with type badges
+│   ├── ownership/       OwnershipListPage, OwnershipDetailPage, hooks, tables with type badges
+│   └── vulnerabilities/ VulnerabilityListPage, VulnerabilityDetailPage, SeverityBadge, table, hooks
 ├── hooks/               Shared hooks (useOrgs)
 ├── lib/                 Utilities (api.ts, auth.ts, query-client.ts)
 ├── pages/               Standalone pages (GitHubCallbackPage)
@@ -144,11 +150,13 @@ web/src/
 ```
 Login → Dashboard → Repositories (per org) → Repository Detail (deps + ownership)
                   → Dependencies (per org) → Dependency Detail → Impact Analysis (pre-filled)
+                  →                                            → Vulnerabilities (filtered by package)
                   → Ownership (per org)    → Ownership Detail (per repo)
                   → Impact Analysis (per org) — form: dependency + ecosystem → blast radius results
+                  → Vulnerabilities (per org) → Vulnerability Detail (affected repos + teams)
 ```
 
-Cross-links exist between Dashboard, Repositories, Dependencies, Ownership, and Impact Analysis pages via breadcrumb navigation. Dependency Detail has an "Analyze Impact" button that navigates to Impact Analysis pre-filled.
+Cross-links exist between Dashboard, Repositories, Dependencies, Ownership, Impact Analysis, and Vulnerabilities pages via breadcrumb navigation. Dependency Detail has an "Analyze Impact" button (navigates to Impact Analysis pre-filled) and a "Known Vulnerabilities" section; the dependency table's vulnerability count links to the vulnerability dashboard filtered by package.
 
 ## Data Model
 
@@ -177,15 +185,16 @@ repositories
 
 dependencies
   ├── id (UUID, PK)
-  ├── ecosystem, name, version (unique together)
+  ├── ecosystem, name (unique together)
   └── created_at, updated_at
 
 repo_dependencies
   ├── repo_id → repositories.id
-  ├── dependency_id → dependencies.id
+  ├── dep_id → dependencies.id
+  ├── version (the declared range, e.g. "^4.17.21")
   ├── dep_type (direct, dev, peer, optional)
   ├── source_file
-  └── created_at, updated_at
+  └── created_at, updated_at (unique: repo_id, dep_id, source_file)
 
 repo_owners
   ├── repo_id → repositories.id
@@ -195,6 +204,20 @@ repo_owners
   ├── source (codeowners)
   ├── line_number
   └── created_at, updated_at
+
+vulnerabilities
+  ├── id (UUID, PK)
+  ├── osv_id (unique), cve_id
+  ├── ecosystem, package_name
+  ├── severity (critical/high/medium/low/unknown), cvss_score, cvss_vector
+  ├── summary, details, fixed_version, introduced_version
+  ├── affected_ranges (JSONB: [{introduced, fixed}])
+  └── published_at, modified_at, created_at, updated_at
+
+dependency_vulnerabilities
+  ├── dep_id → dependencies.id (ON DELETE CASCADE)
+  ├── vuln_id → vulnerabilities.id (ON DELETE CASCADE)
+  └── created_at (unique: dep_id, vuln_id)
 ```
 
 ## CI Pipeline
@@ -219,8 +242,12 @@ GitHub Actions runs on every PR and push to main:
 | ILIKE over FTS for search | At <1000 repos per org, ILIKE is <5ms; `text_pattern_ops` indexes accelerate prefix queries; pg_trgm is the documented upgrade path |
 | Apps.ListRepos over ListByOrg | Works for both organization and personal GitHub accounts; ListByOrg 404s on personal accounts |
 | Normalized dependency model | `dependencies` + `repo_dependencies` junction avoids duplicate rows, enables `repo_count` aggregation |
+| OSV.dev as vulnerability source | No auth, batch endpoint, aggregates GHSA+NVD; querybatch returns only IDs so `vuln.OSVClient` hydrates each via `GET /v1/vulns/{id}` |
+| Sync-time version matching in Go | `dependency_vulnerabilities` is populated at sync time via `stripRange`/`compareSemver`/`isAffected`, keeping dashboard SQL simple (JOIN through the junction) |
+| Cross-domain coupling at the SQL layer only | `dependency.ListByOrg` LEFT JOINs the vuln tables for counts/max-severity without importing the `vuln` package; the dependency detail page reuses the vuln list endpoint via `?package=` |
 
 ## Releases
 
 - **v1.0.0** (PR #29) — MVP Phase 1: auth, catalog, dependencies, ownership, search
 - **v1.0.1** (PR #32) — Hotfixes: personal GitHub account support, auth token refresh, sync race conditions
+- **v1.1.0** (PR #33, #34, #35) — Impact Analysis (blast radius) + Vulnerabilities & Risk Dashboard (OSV.dev); completes the deps → impact → risk chain

@@ -122,6 +122,8 @@ internal/
     parser/                npm package.json parser
   ownership/               CODEOWNERS parsing + ownership detection
     parser/                CODEOWNERS file parser
+  impact/                  Blast radius analysis + risk scoring
+  vuln/                    OSV.dev vulnerability sync, matching, and dashboard
   ingest/parsers/          CLI parsers (Apache 2.0)
   org/                     Organization management + sync orchestration
   platform/
@@ -130,7 +132,7 @@ internal/
     github/                GitHub App client factory
 migrations/                SQL migrations (auto-embedded, auto-run on startup)
 web/                       React SPA (Vite + Tailwind v4 + shadcn/ui)
-  src/features/            Feature modules (catalog, dependencies, ownership)
+  src/features/            Feature modules (catalog, dependencies, ownership, impact, vulnerabilities)
   src/components/          Shared components + shadcn primitives
   src/lib/                 API client, auth, utilities
 deploy/                    Docker + Compose
@@ -148,9 +150,11 @@ For a deeper dive into how these pieces fit together, see [ARCHITECTURE.md](ARCH
 - [x] **Epic 4** — Ownership Detection
 - [x] **Epic 5** — Search
 - [x] **v1.0.0** — MVP Phase 1 Complete
-- [ ] **Epic 6** — Dependency Graph Visualization
-- [ ] **Epic 7** — Impact Analysis
-- [ ] **Epic 8** — Risk Dashboard
+- [x] **Epic 6** — Impact Analysis (Blast Radius)
+- [x] **Epic 8** — Vulnerabilities & Risk Dashboard (OSV.dev)
+- [x] **v1.1.0** — Deps → Impact → Risk chain complete
+- [ ] **Epic 7** — Dependency Graph Visualization
+- [ ] **Epic 9** — CLI (`atlas scan`)
 
 <hr />
 

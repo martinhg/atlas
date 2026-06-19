@@ -106,8 +106,10 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). Every commi
 | `org` | Organization module |
 | `catalog` | Catalog module |
 | `dependency` | Dependency parsing module |
+| `ownership` | Ownership detection module |
 | `ingest` | Data ingestion pipeline |
 | `impact` | Impact analysis engine |
+| `vuln` | Vulnerability sync and dashboard |
 | `search` | Search module |
 | `web` | Frontend application |
 | `cli` | CLI tool |
