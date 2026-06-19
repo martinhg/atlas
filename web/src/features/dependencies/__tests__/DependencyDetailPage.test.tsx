@@ -16,6 +16,16 @@ vi.mock("@/features/dependencies/useDependencyDetail", () => ({
   useDependencyDetail: vi.fn(),
 }));
 
+// Stub the vulnerabilities hook used by the DependencyVulnerabilities section so
+// this page test stays focused on the dependency detail behavior.
+vi.mock("@/features/vulnerabilities/useVulnerabilities", () => ({
+  useVulnerabilities: vi.fn(() => ({
+    data: { data: [], total: 0, page: 1, per_page: 100 },
+    isPending: false,
+    isError: false,
+  })),
+}));
+
 import { useDependencyDetail } from "@/features/dependencies/useDependencyDetail";
 const mockUseDetail = vi.mocked(useDependencyDetail);
 

@@ -585,3 +585,87 @@ func TestIntegration_ListByOrg_q_no_match_returns_empty(t *testing.T) {
 		t.Errorf("len(got) = %d, want 0", len(got))
 	}
 }
+
+// TestIntegration_ListByOrg_vulnCounts verifies that ListByOrg returns the
+// per-dependency vulnerability count and highest severity. Requires DATABASE_URL.
+func TestIntegration_ListByOrg_vulnCounts(t *testing.T) {
+	pool := getTestPool(t)
+	store := NewStore(pool)
+	ctx := context.Background()
+	orgID := makeTestOrg(t, pool)
+	repoID := makeTestRepo(t, pool, orgID, "vuln-count-test")
+
+	deps := []parser.ParsedDep{
+		{Ecosystem: "npm", Name: "vulncount-lodash", Version: "^4.17.0", DepType: "dep", SourceFile: "package.json"},
+		{Ecosystem: "npm", Name: "vulncount-clean", Version: "^1.0.0", DepType: "dep", SourceFile: "package.json"},
+	}
+	if err := store.SyncRepoDependencies(ctx, repoID, deps); err != nil {
+		t.Fatalf("SyncRepoDependencies: %v", err)
+	}
+
+	// Resolve the dep_id of the lodash dependency.
+	var depID uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`SELECT id FROM dependencies WHERE ecosystem = 'npm' AND name = 'vulncount-lodash'`,
+	).Scan(&depID); err != nil {
+		t.Fatalf("resolve dep id: %v", err)
+	}
+
+	// Insert two vulnerabilities (high + critical) and link both to the dep.
+	for _, v := range []struct {
+		osvID, severity string
+	}{
+		{"VULNCOUNT-HIGH", "high"},
+		{"VULNCOUNT-CRIT", "critical"},
+	} {
+		var vulnID uuid.UUID
+		if err := pool.QueryRow(ctx, `
+			INSERT INTO vulnerabilities (osv_id, ecosystem, package_name, severity)
+			VALUES ($1, 'npm', 'vulncount-lodash', $2)
+			RETURNING id
+		`, v.osvID, v.severity).Scan(&vulnID); err != nil {
+			t.Fatalf("insert vuln %s: %v", v.osvID, err)
+		}
+		t.Cleanup(func() {
+			pool.Exec(ctx, "DELETE FROM vulnerabilities WHERE id = $1", vulnID) //nolint:errcheck
+		})
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO dependency_vulnerabilities (dep_id, vuln_id) VALUES ($1, $2)`,
+			depID, vulnID,
+		); err != nil {
+			t.Fatalf("link dep-vuln: %v", err)
+		}
+	}
+
+	got, _, err := store.ListByOrg(ctx, orgID, "vulncount-", 1, 50)
+	if err != nil {
+		t.Fatalf("ListByOrg: %v", err)
+	}
+
+	byName := map[string]DependencyWithCount{}
+	for _, d := range got {
+		byName[d.Name] = d
+	}
+
+	lodash, ok := byName["vulncount-lodash"]
+	if !ok {
+		t.Fatalf("vulncount-lodash not found in results")
+	}
+	if lodash.VulnCount != 2 {
+		t.Errorf("lodash VulnCount = %d, want 2", lodash.VulnCount)
+	}
+	if lodash.MaxSeverity != "critical" {
+		t.Errorf("lodash MaxSeverity = %q, want critical", lodash.MaxSeverity)
+	}
+
+	clean, ok := byName["vulncount-clean"]
+	if !ok {
+		t.Fatalf("vulncount-clean not found in results")
+	}
+	if clean.VulnCount != 0 {
+		t.Errorf("clean VulnCount = %d, want 0", clean.VulnCount)
+	}
+	if clean.MaxSeverity != "" {
+		t.Errorf("clean MaxSeverity = %q, want empty", clean.MaxSeverity)
+	}
+}

@@ -26,7 +26,7 @@ describe("useDependencies", () => {
 
   it("fetches dependencies with default params", async () => {
     const response = {
-      data: [{ ecosystem: "npm", name: "react", repo_count: 5 }],
+      data: [{ ecosystem: "npm", name: "react", repo_count: 5, vuln_count: 0, max_severity: "" as const }],
       total: 1,
       page: 1,
       per_page: 50,

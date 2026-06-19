@@ -10,6 +10,8 @@ import { DependencyDetailPage } from "@/features/dependencies/DependencyDetailPa
 import { OwnershipListPage } from "@/features/ownership/OwnershipListPage";
 import { OwnershipDetailPage } from "@/features/ownership/OwnershipDetailPage";
 import { ImpactAnalysisPage } from "@/features/impact/ImpactAnalysisPage";
+import { VulnerabilityListPage } from "@/features/vulnerabilities/VulnerabilityListPage";
+import { VulnerabilityDetailPage } from "@/features/vulnerabilities/VulnerabilityDetailPage";
 
 export const router = createBrowserRouter([
   {
@@ -81,6 +83,22 @@ export const router = createBrowserRouter([
     element: (
       <AuthGuard>
         {(_user, onLogout) => <ImpactAnalysisPage onLogout={onLogout} />}
+      </AuthGuard>
+    ),
+  },
+  {
+    path: "/orgs/:slug/vulnerabilities",
+    element: (
+      <AuthGuard>
+        {(_user, onLogout) => <VulnerabilityListPage onLogout={onLogout} />}
+      </AuthGuard>
+    ),
+  },
+  {
+    path: "/orgs/:slug/vulnerabilities/:id",
+    element: (
+      <AuthGuard>
+        {(_user, onLogout) => <VulnerabilityDetailPage onLogout={onLogout} />}
       </AuthGuard>
     ),
   },

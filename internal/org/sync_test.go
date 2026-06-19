@@ -96,7 +96,7 @@ func TestSyncRepos_success(t *testing.T) {
 	orgS := &mockOrgStore{}
 	catS := &mockCatalogStore{}
 
-	syncRepos(client, orgS, catS, nil, nil, orgID)
+	syncRepos(client, orgS, catS, nil, nil, nil, orgID)
 
 	if len(catS.upsertCalls) != 3 {
 		t.Errorf("expected 3 UpsertRepository calls, got %d", len(catS.upsertCalls))
@@ -116,7 +116,7 @@ func TestSyncRepos_github_error(t *testing.T) {
 	orgS := &mockOrgStore{}
 	catS := &mockCatalogStore{}
 
-	syncRepos(client, orgS, catS, nil, nil, uuid.New())
+	syncRepos(client, orgS, catS, nil, nil, nil, uuid.New())
 
 	if len(catS.upsertCalls) != 0 {
 		t.Errorf("expected 0 UpsertRepository calls, got %d", len(catS.upsertCalls))
@@ -145,7 +145,7 @@ func TestSyncRepos_upsert_error(t *testing.T) {
 	orgS := &mockOrgStore{}
 	catS := &mockCatalogStore{upsertErr: fmt.Errorf("db connection lost")}
 
-	syncRepos(client, orgS, catS, nil, nil, uuid.New())
+	syncRepos(client, orgS, catS, nil, nil, nil, uuid.New())
 
 	if len(catS.upsertCalls) != 2 {
 		t.Errorf("expected 2 UpsertRepository calls (continues on error), got %d", len(catS.upsertCalls))
@@ -203,7 +203,7 @@ func TestSyncRepos_depSyncer_called_after_upsert(t *testing.T) {
 	catS := &mockCatalogStore{}
 	depS := &mockDepSyncer{}
 
-	syncRepos(client, orgS, catS, depS, nil, orgID)
+	syncRepos(client, orgS, catS, depS, nil, nil, orgID)
 
 	if len(depS.syncCalls) != 2 {
 		t.Errorf("expected 2 SyncRepoDeps calls, got %d", len(depS.syncCalls))
@@ -232,7 +232,7 @@ func TestSyncRepos_depSyncer_nil_guard(t *testing.T) {
 	catS := &mockCatalogStore{}
 
 	// Must not panic.
-	syncRepos(client, orgS, catS, nil, nil, uuid.New())
+	syncRepos(client, orgS, catS, nil, nil, nil, uuid.New())
 
 	if len(catS.upsertCalls) != 1 {
 		t.Errorf("expected 1 UpsertRepository call, got %d", len(catS.upsertCalls))
@@ -267,7 +267,7 @@ func TestSyncRepos_depSyncer_error_isolation(t *testing.T) {
 		},
 	}
 
-	syncRepos(client, orgS, catS, depS, nil, uuid.New())
+	syncRepos(client, orgS, catS, depS, nil, nil, uuid.New())
 
 	// All three catalog upserts must succeed regardless of dep sync error.
 	if len(catS.upsertCalls) != 3 {
@@ -325,7 +325,7 @@ func TestSyncRepos_ownershipSyncer_calledPerRepo(t *testing.T) {
 	catS := &mockCatalogStore{}
 	ownerS := &mockOwnershipSyncer{}
 
-	syncRepos(client, orgS, catS, nil, ownerS, orgID)
+	syncRepos(client, orgS, catS, nil, ownerS, nil, orgID)
 
 	if len(ownerS.syncCalls) != 2 {
 		t.Errorf("expected 2 SyncRepoOwnership calls, got %d", len(ownerS.syncCalls))
@@ -354,7 +354,7 @@ func TestSyncRepos_ownershipSyncer_nilGuard(t *testing.T) {
 	catS := &mockCatalogStore{}
 
 	// Must not panic with nil ownershipSyncer.
-	syncRepos(client, orgS, catS, nil, nil, uuid.New())
+	syncRepos(client, orgS, catS, nil, nil, nil, uuid.New())
 
 	if len(catS.upsertCalls) != 1 {
 		t.Errorf("expected 1 UpsertRepository call, got %d", len(catS.upsertCalls))
@@ -389,7 +389,7 @@ func TestSyncRepos_ownershipSyncer_errorIsolation(t *testing.T) {
 		},
 	}
 
-	syncRepos(client, orgS, catS, nil, ownerS, uuid.New())
+	syncRepos(client, orgS, catS, nil, ownerS, nil, uuid.New())
 
 	// All three repos should have had ownership sync attempted.
 	if len(ownerS.syncCalls) != 3 {
@@ -398,5 +398,112 @@ func TestSyncRepos_ownershipSyncer_errorIsolation(t *testing.T) {
 	// All three catalog upserts must succeed.
 	if len(catS.upsertCalls) != 3 {
 		t.Errorf("expected 3 UpsertRepository calls, got %d", len(catS.upsertCalls))
+	}
+}
+
+// mockVulnSyncer is a test double for the VulnSyncer interface in the org package.
+type mockVulnSyncer struct {
+	calls []uuid.UUID
+	err   error
+}
+
+func (m *mockVulnSyncer) SyncOrgVulns(_ context.Context, orgID uuid.UUID) error {
+	m.calls = append(m.calls, orgID)
+	return m.err
+}
+
+// TestSyncRepos_callsVulnSyncerAfterLoop verifies that vulnSyncer.SyncOrgVulns
+// is called exactly once for the org after the repo loop completes.
+func TestSyncRepos_callsVulnSyncerAfterLoop(t *testing.T) {
+	name1, name2 := "repo-1", "repo-2"
+	full1, full2 := "org/repo-1", "org/repo-2"
+	branch := "main"
+	ownerLogin := "org"
+	owner := &gogithub.User{Login: &ownerLogin}
+	repos := []*gogithub.Repository{
+		{ID: ptr(int64(1)), Name: &name1, FullName: &full1, DefaultBranch: &branch, Owner: owner},
+		{ID: ptr(int64(2)), Name: &name2, FullName: &full2, DefaultBranch: &branch, Owner: owner},
+	}
+
+	srv := newMockGitHubServer(repos, 0)
+	defer srv.Close()
+
+	client := gogithub.NewClient(nil)
+	client.BaseURL, _ = client.BaseURL.Parse(srv.URL + "/")
+
+	orgID := uuid.New()
+	orgS := &mockOrgStore{}
+	catS := &mockCatalogStore{}
+	vs := &mockVulnSyncer{}
+
+	syncRepos(client, orgS, catS, nil, nil, vs, orgID)
+
+	if len(vs.calls) != 1 {
+		t.Fatalf("expected 1 SyncOrgVulns call, got %d", len(vs.calls))
+	}
+	if vs.calls[0] != orgID {
+		t.Errorf("SyncOrgVulns called with %s, want %s", vs.calls[0], orgID)
+	}
+}
+
+// TestSyncRepos_vulnSyncerFailureIsNonBlocking verifies that a VulnSyncer error
+// is logged but does not abort the sync — last_synced_at is still set.
+func TestSyncRepos_vulnSyncerFailureIsNonBlocking(t *testing.T) {
+	name1 := "repo-1"
+	full1 := "org/repo-1"
+	branch := "main"
+	ownerLogin := "org"
+	owner := &gogithub.User{Login: &ownerLogin}
+	repos := []*gogithub.Repository{
+		{ID: ptr(int64(1)), Name: &name1, FullName: &full1, DefaultBranch: &branch, Owner: owner},
+	}
+
+	srv := newMockGitHubServer(repos, 0)
+	defer srv.Close()
+
+	client := gogithub.NewClient(nil)
+	client.BaseURL, _ = client.BaseURL.Parse(srv.URL + "/")
+
+	orgID := uuid.New()
+	orgS := &mockOrgStore{}
+	catS := &mockCatalogStore{}
+	vs := &mockVulnSyncer{err: fmt.Errorf("osv unavailable")}
+
+	syncRepos(client, orgS, catS, nil, nil, vs, orgID)
+
+	if len(vs.calls) != 1 {
+		t.Errorf("expected 1 SyncOrgVulns call, got %d", len(vs.calls))
+	}
+	// Non-blocking: sync still completes and marks last_synced_at.
+	if len(orgS.lastSyncedCalls) != 1 {
+		t.Errorf("expected sync to complete despite vuln error, lastSyncedCalls=%d", len(orgS.lastSyncedCalls))
+	}
+}
+
+// TestSyncRepos_vulnSyncerNilGuard verifies a nil vulnSyncer does not panic.
+func TestSyncRepos_vulnSyncerNilGuard(t *testing.T) {
+	name1 := "repo-1"
+	full1 := "org/repo-1"
+	branch := "main"
+	ownerLogin := "org"
+	owner := &gogithub.User{Login: &ownerLogin}
+	repos := []*gogithub.Repository{
+		{ID: ptr(int64(1)), Name: &name1, FullName: &full1, DefaultBranch: &branch, Owner: owner},
+	}
+
+	srv := newMockGitHubServer(repos, 0)
+	defer srv.Close()
+
+	client := gogithub.NewClient(nil)
+	client.BaseURL, _ = client.BaseURL.Parse(srv.URL + "/")
+
+	orgS := &mockOrgStore{}
+	catS := &mockCatalogStore{}
+
+	// Must not panic with nil vulnSyncer.
+	syncRepos(client, orgS, catS, nil, nil, nil, uuid.New())
+
+	if len(catS.upsertCalls) != 1 {
+		t.Errorf("expected 1 UpsertRepository call, got %d", len(catS.upsertCalls))
 	}
 }

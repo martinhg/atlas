@@ -10,6 +10,8 @@ import {
   fetchOwnership,
   fetchOwnershipDetail,
   analyzeImpact,
+  fetchVulnerabilities,
+  fetchVulnerabilityDetail,
 } from "@/lib/api";
 
 vi.mock("@/lib/auth", () => ({
@@ -274,6 +276,81 @@ describe("fetchOwnershipDetail", () => {
     mockApiFetch.mockResolvedValue({ ok: false, status: 500 } as Response);
     await expect(fetchOwnershipDetail("my-org", "atlas")).rejects.toThrow(
       "Failed to fetch ownership detail"
+    );
+  });
+});
+
+describe("fetchVulnerabilities", () => {
+  it("returns the vulnerability list with default params", async () => {
+    const response = { data: [], total: 0, page: 1, per_page: 20 };
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(response),
+    } as Response);
+
+    const result = await fetchVulnerabilities("my-org");
+    expect(result).toEqual(response);
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/api/v1/orgs/my-org/vulnerabilities?page=1&perPage=20"
+    );
+  });
+
+  it("passes the severity filter when provided", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: [], total: 0, page: 1, per_page: 20 }),
+    } as Response);
+
+    await fetchVulnerabilities("my-org", 2, 20, "critical");
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/api/v1/orgs/my-org/vulnerabilities?page=2&perPage=20&severity=critical"
+    );
+  });
+
+  it("passes the package filter when provided", async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: [], total: 0, page: 1, per_page: 20 }),
+    } as Response);
+
+    await fetchVulnerabilities("my-org", 1, 20, "", "lodash");
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/api/v1/orgs/my-org/vulnerabilities?page=1&perPage=20&package=lodash"
+    );
+  });
+
+  it("throws on failure", async () => {
+    mockApiFetch.mockResolvedValue({ ok: false, status: 500 } as Response);
+    await expect(fetchVulnerabilities("my-org")).rejects.toThrow(
+      "Failed to fetch vulnerabilities"
+    );
+  });
+});
+
+describe("fetchVulnerabilityDetail", () => {
+  it("returns the detail on success", async () => {
+    const detail = { id: "v1", osv_id: "GHSA-aaaa", affected_repos: [] };
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(detail),
+    } as Response);
+
+    const result = await fetchVulnerabilityDetail("my-org", "v1");
+    expect(result).toEqual(detail);
+    expect(mockApiFetch).toHaveBeenCalledWith("/api/v1/orgs/my-org/vulnerabilities/v1");
+  });
+
+  it("returns null on 404", async () => {
+    mockApiFetch.mockResolvedValue({ ok: false, status: 404 } as Response);
+    const result = await fetchVulnerabilityDetail("my-org", "missing");
+    expect(result).toBeNull();
+  });
+
+  it("throws on other errors", async () => {
+    mockApiFetch.mockResolvedValue({ ok: false, status: 500 } as Response);
+    await expect(fetchVulnerabilityDetail("my-org", "v1")).rejects.toThrow(
+      "Failed to fetch vulnerability detail"
     );
   });
 });

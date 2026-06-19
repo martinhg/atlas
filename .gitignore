@@ -1,6 +1,8 @@
 # Binaries
 /bin/
 /dist/
+/atlas-server
+/atlas
 *.exe
 *.exe~
 *.dll
@@ -46,5 +48,10 @@ coverage/
 # OS
 Thumbs.db
 
+# Tooling state
+.atl/
+.claude/worktrees/
+
 # Local-only docs
 *.local.md
+docs/
