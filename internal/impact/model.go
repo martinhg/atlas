@@ -1,14 +1,5 @@
 package impact
 
-// RiskLevel classifies the heuristic blast-radius risk of a dependency.
-type RiskLevel string
-
-const (
-	RiskLow    RiskLevel = "low"
-	RiskMedium RiskLevel = "medium"
-	RiskHigh   RiskLevel = "high"
-)
-
 // AffectedRepo describes one repository that declares the queried dependency,
 // including the version, dependency type, and owning teams.
 type AffectedRepo struct {

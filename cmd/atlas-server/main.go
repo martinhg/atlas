@@ -17,6 +17,7 @@ import (
 	"github.com/nesbite/atlas/internal/auth"
 	"github.com/nesbite/atlas/internal/catalog"
 	"github.com/nesbite/atlas/internal/dependency"
+	"github.com/nesbite/atlas/internal/graph"
 	"github.com/nesbite/atlas/internal/impact"
 	"github.com/nesbite/atlas/internal/org"
 	"github.com/nesbite/atlas/internal/ownership"
@@ -91,6 +92,9 @@ func main() {
 	impactStore := impact.NewStore(pool)
 	impactHandler := impact.NewHandler(impactStore, &orgStoreResolver{store: orgStore})
 
+	graphStore := graph.NewStore(pool)
+	graphHandler := graph.NewHandler(graphStore, &orgStoreResolver{store: orgStore})
+
 	vulnStore := vuln.NewStore(pool)
 	vulnService := vuln.NewService(vulnStore, vuln.NewOSVClient())
 	vulnHandler := vuln.NewHandler(vulnStore, &orgStoreResolver{store: orgStore})
@@ -147,6 +151,7 @@ func main() {
 			r.Get("/orgs/{slug}/ownership", ownershipHandler.HandleListOwnership)
 			r.Get("/orgs/{slug}/ownership/{repo}", ownershipHandler.HandleGetRepoOwnership)
 			r.Post("/orgs/{slug}/impact", impactHandler.HandleAnalyzeImpact)
+			r.Get("/orgs/{slug}/graph", graphHandler.HandleGetGraph)
 			r.Get("/orgs/{slug}/vulnerabilities", vulnHandler.HandleListVulnerabilities)
 			r.Get("/orgs/{slug}/vulnerabilities/{id}", vulnHandler.HandleGetVulnerability)
 		})
