@@ -112,6 +112,8 @@ export default function GraphPage({ onLogout }: Props) {
             {selectedNode && (
               <NodeDetailPanel
                 node={selectedNode}
+                nodes={data.nodes}
+                edges={data.edges}
                 onClose={() => setSelectedNode(null)}
               />
             )}

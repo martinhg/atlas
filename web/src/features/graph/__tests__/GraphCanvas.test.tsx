@@ -112,4 +112,47 @@ describe("GraphCanvas", () => {
     expect(callArgs).toContain("clickNode");
     expect(callArgs).toContain("clickStage");
   });
+
+  it("does NOT recreate the Sigma instance when only the onSelectNode prop identity changes", () => {
+    // Given — initial render with one callback identity
+    const { rerender } = render(
+      <GraphCanvas nodes={nodes} edges={edges} onSelectNode={() => {}} />,
+    );
+    expect(MockSigma).toHaveBeenCalledOnce();
+
+    // When — re-render with the SAME nodes/edges but a NEW callback identity
+    // (mimics GraphPage passing an inline arrow recreated each render)
+    rerender(
+      <GraphCanvas nodes={nodes} edges={edges} onSelectNode={() => {}} />,
+    );
+
+    // Then — the effect must NOT tear down and rebuild Sigma. The instance
+    // persists across node-selection state changes, so no layout re-randomize.
+    expect(MockSigma).toHaveBeenCalledOnce();
+    expect(mockKill).not.toHaveBeenCalled();
+  });
+
+  it("invokes the latest onSelectNode callback after a re-render without rebuilding Sigma", () => {
+    // Given — capture the clickNode handler registered with sigma.on
+    const first = vi.fn();
+    const { rerender } = render(
+      <GraphCanvas nodes={nodes} edges={edges} onSelectNode={first} />,
+    );
+    const clickNodeHandler = mockOn.mock.calls.find(
+      ([event]) => event === "clickNode",
+    )?.[1] as (payload: { node: string }) => void;
+
+    // When — the parent re-renders with a brand-new callback identity
+    const second = vi.fn();
+    rerender(
+      <GraphCanvas nodes={nodes} edges={edges} onSelectNode={second} />,
+    );
+    // And the original Sigma click handler fires
+    clickNodeHandler({ node: "repo:uuid-1" });
+
+    // Then — the LATEST callback receives the event, not the stale one
+    expect(second).toHaveBeenCalledWith("repo:uuid-1");
+    expect(first).not.toHaveBeenCalled();
+    expect(MockSigma).toHaveBeenCalledOnce();
+  });
 });

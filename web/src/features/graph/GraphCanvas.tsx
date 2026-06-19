@@ -39,6 +39,16 @@ function nodeSize(node: GraphNode): number {
 export function GraphCanvas({ nodes, edges, onSelectNode, className }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Keep the latest onSelectNode in a ref so the render effect does NOT depend
+  // on its identity. GraphPage passes an inline arrow recreated on every render
+  // (e.g. when node-selection state changes), and including it in the effect
+  // deps would tear down Sigma and re-run forceAtlas2 on every node click,
+  // re-randomizing node positions. The Sigma instance must persist instead.
+  const onSelectNodeRef = useRef(onSelectNode);
+  useEffect(() => {
+    onSelectNodeRef.current = onSelectNode;
+  }, [onSelectNode]);
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -70,17 +80,17 @@ export function GraphCanvas({ nodes, edges, onSelectNode, className }: Props) {
     });
 
     sigma.on("clickNode", ({ node }) => {
-      onSelectNode(node);
+      onSelectNodeRef.current(node);
     });
 
     sigma.on("clickStage", () => {
-      onSelectNode(null);
+      onSelectNodeRef.current(null);
     });
 
     return () => {
       sigma.kill();
     };
-  }, [nodes, edges, onSelectNode]);
+  }, [nodes, edges]);
 
   return (
     <div
