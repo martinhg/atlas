@@ -319,6 +319,55 @@ export async function fetchVulnerabilities(
   return res.json();
 }
 
+// --- Graph types ---
+
+export type GraphNodeType = "repo" | "dep" | "team";
+
+export interface GraphNode {
+  id: string;
+  type: GraphNodeType;
+  label: string;
+  risk_level?: RiskLevel;
+  ecosystem?: string;
+  language?: string;
+}
+
+export interface GraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  dep_type?: string;
+  label?: string;
+}
+
+export interface GraphFilters {
+  ecosystem?: string;
+  risk?: RiskLevel;
+  team?: string;
+}
+
+export interface GraphResponse {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  truncated: boolean;
+}
+
+export async function fetchGraphData(
+  slug: string,
+  filters: GraphFilters,
+): Promise<GraphResponse> {
+  const params = new URLSearchParams();
+  if (filters.ecosystem) params.set("ecosystem", filters.ecosystem);
+  if (filters.risk) params.set("risk", filters.risk);
+  if (filters.team) params.set("team", filters.team);
+  const query = params.toString();
+  const res = await apiFetch(
+    `/api/v1/orgs/${slug}/graph${query ? `?${query}` : ""}`,
+  );
+  if (!res.ok) throw new Error("Failed to fetch graph data");
+  return res.json();
+}
+
 export async function fetchVulnerabilityDetail(
   slug: string,
   id: string,
