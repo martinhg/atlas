@@ -33,6 +33,8 @@ Each domain lives in its own package under `internal/` and follows the same stru
 | `ownership` | CODEOWNERS parsing, ownership storage, and querying |
 | `impact` | Blast radius analysis: dependency → affected repos → affected teams, risk scoring |
 | `vuln` | OSV.dev vulnerability sync (batch query + hydrate), semver range matching, dashboard list/detail |
+| `graph` | Dependency graph data: repo → dep → team nodes+edges in one aggregating query, server-side filters, edge truncation |
+| `risk` | Shared blast-radius risk heuristic (`ComputeRiskScore` + `RiskLevel`), reused by `impact` and `graph` |
 | `search` (via existing packages) | ILIKE filtering on repos and dependencies via `?q=` query param |
 | `platform/config` | Environment variable loading via godotenv |
 | `platform/database` | pgxpool connection, custom migration runner with advisory locking |
@@ -72,6 +74,7 @@ All API routes live under `/api/v1` and are registered in `cmd/atlas-server/main
 /api/v1/orgs/{slug}/impact               POST — Impact analysis (blast radius)
 /api/v1/orgs/{slug}/vulnerabilities      GET  — List vulnerabilities (?severity, ?package)
 /api/v1/orgs/{slug}/vulnerabilities/{id} GET  — Vulnerability detail + affected repos
+/api/v1/orgs/{slug}/graph                GET  — Dependency graph nodes+edges (?ecosystem, ?risk, ?team)
 ```
 
 All org-scoped routes use `{slug}` (human-readable) as the org identifier. Handlers resolve slug → UUID internally via `OrgResolver`.
@@ -123,13 +126,14 @@ React 19, Vite 8, TypeScript, Tailwind CSS v4, shadcn/ui, TanStack Query v5.
 ```
 web/src/
 ├── components/          Shared components (DashboardPage, LoginPage, AuthGuard)
-│   └── ui/              shadcn primitives (Button, Card, Avatar, Input)
+│   └── ui/              shadcn primitives (Button, Card, Avatar, Input, Badge)
 ├── features/            Feature modules (catalog, dependencies, ownership, impact)
 │   ├── catalog/         RepoListPage, RepoDetailPage, RepoTable, useRepos, useRepoDetail, useRepoDeps
 │   ├── dependencies/    DependencyListPage, DependencyDetailPage, hooks, tables
 │   ├── impact/          ImpactAnalysisPage, ImpactResultTable, useImpactAnalysis
 │   ├── ownership/       OwnershipListPage, OwnershipDetailPage, hooks, tables with type badges
-│   └── vulnerabilities/ VulnerabilityListPage, VulnerabilityDetailPage, SeverityBadge, table, hooks
+│   ├── vulnerabilities/ VulnerabilityListPage, VulnerabilityDetailPage, SeverityBadge, table, hooks
+│   └── graph/           GraphPage, GraphCanvas (Sigma.js), GraphFilters, NodeDetailPanel, useGraphData
 ├── hooks/               Shared hooks (useOrgs)
 ├── lib/                 Utilities (api.ts, auth.ts, query-client.ts)
 ├── pages/               Standalone pages (GitHubCallbackPage)

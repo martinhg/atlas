@@ -153,7 +153,8 @@ For a deeper dive into how these pieces fit together, see [ARCHITECTURE.md](ARCH
 - [x] **Epic 6** — Impact Analysis (Blast Radius)
 - [x] **Epic 8** — Vulnerabilities & Risk Dashboard (OSV.dev)
 - [x] **v1.1.0** — Deps → Impact → Risk chain complete
-- [ ] **Epic 7** — Dependency Graph Visualization
+- [x] **Epic 7** — Dependency Graph Visualization (Sigma.js)
+- [x] **v1.2.0** — Interactive dependency graph
 - [ ] **Epic 9** — CLI (`atlas scan`)
 
 <hr />
