@@ -7,6 +7,37 @@ and this project adheres to [Conventional Commits](https://www.conventionalcommi
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-19
+
+See the whole org as a graph. This release adds interactive dependency graph
+visualization — repos, dependencies, and teams as a single navigable picture.
+
+### Added
+
+- **Dependency Graph Visualization** (Epic 7) — an interactive graph of
+  repo → dependency → team relationships across an org (#37, #38)
+  - `internal/graph/` domain: `GET /orgs/{slug}/graph` returning a flat
+    `{nodes, edges, truncated}` payload built from existing relational tables in
+    a single aggregating query (no graph database, no new migrations)
+  - Server-side filters by `ecosystem`, `risk`, and `team`; deterministic edge
+    truncation (LIMIT 5000) with orphan-node pruning and a `truncated` flag
+  - One edge per repo→dependency pair (deduped across manifests, higher-precedence
+    `dep_type` wins); repo risk level is the max of its dependencies' risk
+  - Frontend `web/src/features/graph/`: Sigma.js + graphology canvas with pan/zoom,
+    node-click detail panel (relationships derived client-side), and an
+    ecosystem/risk/team filter toolbar, at route `/orgs/{slug}/graph`
+
+### Changed
+
+- Extracted the blast-radius risk heuristic into a shared `internal/risk/`
+  package (`ComputeRiskScore` + `RiskLevel`), now reused by both `impact` and
+  `graph`. `impact`'s public API is unchanged (type aliases).
+
+### Refactored
+
+- Added a shadcn `Badge` primitive (`@/components/ui/badge.tsx`) and refactored
+  `SeverityBadge` to compose it instead of a hand-rolled span (#39).
+
 ## [1.1.0] - 2026-06-19
 
 Deps → Impact → Risk. This release completes the chain: from "what depends on
