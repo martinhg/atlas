@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	ownerparser "github.com/nesbite/atlas/internal/ownership/parser"
+	"github.com/nesbite/atlas/internal/ingest/parsers/codeowners"
 )
 
 // --- Mock store for handler tests ---
@@ -27,7 +27,7 @@ type mockHandlerStore struct {
 	lastPerPage int
 }
 
-func (m *mockHandlerStore) SyncRepoOwners(_ context.Context, _ uuid.UUID, _ []ownerparser.ParsedOwner) error {
+func (m *mockHandlerStore) SyncRepoOwners(_ context.Context, _ uuid.UUID, _ []codeowners.ParsedOwner) error {
 	return nil
 }
 

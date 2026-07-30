@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	ownerparser "github.com/nesbite/atlas/internal/ownership/parser"
+	"github.com/nesbite/atlas/internal/ingest/parsers/codeowners"
 	"github.com/nesbite/atlas/internal/platform/database"
 	"github.com/nesbite/atlas/migrations"
 )
@@ -30,10 +30,10 @@ type mockOwnershipStore struct {
 
 type storeSyncCall struct {
 	repoID uuid.UUID
-	owners []ownerparser.ParsedOwner
+	owners []codeowners.ParsedOwner
 }
 
-func (m *mockOwnershipStore) SyncRepoOwners(ctx context.Context, repoID uuid.UUID, owners []ownerparser.ParsedOwner) error {
+func (m *mockOwnershipStore) SyncRepoOwners(ctx context.Context, repoID uuid.UUID, owners []codeowners.ParsedOwner) error {
 	m.syncCalls = append(m.syncCalls, storeSyncCall{repoID: repoID, owners: owners})
 	return m.syncErr
 }
@@ -59,7 +59,7 @@ func TestSyncRepoOwners_stores_owners(t *testing.T) {
 	store := &mockOwnershipStore{}
 	ctx := context.Background()
 	repoID := uuid.New()
-	owners := []ownerparser.ParsedOwner{
+	owners := []codeowners.ParsedOwner{
 		{Pattern: "*.go", Owner: "@go-team", OwnerType: "user", LineNumber: 1},
 		{Pattern: "src/", Owner: "@org/backend", OwnerType: "team", LineNumber: 2},
 	}
@@ -84,7 +84,7 @@ func TestSyncRepoOwners_empty_owners_clears(t *testing.T) {
 	ctx := context.Background()
 	repoID := uuid.New()
 
-	err := store.SyncRepoOwners(ctx, repoID, []ownerparser.ParsedOwner{})
+	err := store.SyncRepoOwners(ctx, repoID, []codeowners.ParsedOwner{})
 	if err != nil {
 		t.Fatalf("SyncRepoOwners with empty: unexpected error: %v", err)
 	}
@@ -301,7 +301,7 @@ func TestIntegration_SyncRepoOwners_insertsNewRows(t *testing.T) {
 	repoID := makeOwnerTestRepo(t, pool, orgID, "sync-insert-test")
 
 	ln1, ln2 := 1, 2
-	owners := []ownerparser.ParsedOwner{
+	owners := []codeowners.ParsedOwner{
 		{Pattern: "*.go", Owner: "@go-team", OwnerType: "user", LineNumber: ln1},
 		{Pattern: "src/", Owner: "@org/backend", OwnerType: "team", LineNumber: ln2},
 	}
@@ -327,7 +327,7 @@ func TestIntegration_SyncRepoOwners_replacesExisting(t *testing.T) {
 	repoID := makeOwnerTestRepo(t, pool, orgID, "sync-replace-test")
 
 	ln1 := 1
-	first := []ownerparser.ParsedOwner{
+	first := []codeowners.ParsedOwner{
 		{Pattern: "*.go", Owner: "@old-owner", OwnerType: "user", LineNumber: ln1},
 	}
 	if err := store.SyncRepoOwners(ctx, repoID, first); err != nil {
@@ -335,7 +335,7 @@ func TestIntegration_SyncRepoOwners_replacesExisting(t *testing.T) {
 	}
 
 	ln2 := 1
-	second := []ownerparser.ParsedOwner{
+	second := []codeowners.ParsedOwner{
 		{Pattern: "src/", Owner: "@new-owner", OwnerType: "user", LineNumber: ln2},
 	}
 	if err := store.SyncRepoOwners(ctx, repoID, second); err != nil {
@@ -362,7 +362,7 @@ func TestIntegration_SyncRepoOwners_emptySliceClears(t *testing.T) {
 	repoID := makeOwnerTestRepo(t, pool, orgID, "sync-clear-test")
 
 	ln1 := 1
-	first := []ownerparser.ParsedOwner{
+	first := []codeowners.ParsedOwner{
 		{Pattern: "*.go", Owner: "@owner", OwnerType: "user", LineNumber: ln1},
 	}
 	if err := store.SyncRepoOwners(ctx, repoID, first); err != nil {
@@ -370,7 +370,7 @@ func TestIntegration_SyncRepoOwners_emptySliceClears(t *testing.T) {
 	}
 
 	// Sync with empty slice — should clear all rows.
-	if err := store.SyncRepoOwners(ctx, repoID, []ownerparser.ParsedOwner{}); err != nil {
+	if err := store.SyncRepoOwners(ctx, repoID, []codeowners.ParsedOwner{}); err != nil {
 		t.Fatalf("empty SyncRepoOwners: %v", err)
 	}
 
@@ -393,7 +393,7 @@ func TestIntegration_ListByOrg_pagination(t *testing.T) {
 	for i, name := range []string{"repo-a", "repo-b", "repo-c"} {
 		repoID := makeOwnerTestRepo(t, pool, orgID, name)
 		ln := i + 1
-		owners := []ownerparser.ParsedOwner{
+		owners := []codeowners.ParsedOwner{
 			{Pattern: "*.go", Owner: "@owner-" + name, OwnerType: "user", LineNumber: ln},
 		}
 		if err := store.SyncRepoOwners(ctx, repoID, owners); err != nil {
@@ -456,7 +456,7 @@ func TestIntegration_ListByRepo_orderedByLineNumber(t *testing.T) {
 
 	// Insert owners in reverse line number order.
 	ln3, ln1, ln5 := 3, 1, 5
-	owners := []ownerparser.ParsedOwner{
+	owners := []codeowners.ParsedOwner{
 		{Pattern: "docs/", Owner: "@doc-owner", OwnerType: "user", LineNumber: ln3},
 		{Pattern: "*.go", Owner: "@go-owner", OwnerType: "user", LineNumber: ln1},
 		{Pattern: "src/", Owner: "@src-owner", OwnerType: "user", LineNumber: ln5},
@@ -493,7 +493,7 @@ func TestIntegration_ListByOrg_aggregation(t *testing.T) {
 	repoID := makeOwnerTestRepo(t, pool, orgID, "agg-test")
 
 	ln1, ln2, ln3 := 1, 2, 3
-	owners := []ownerparser.ParsedOwner{
+	owners := []codeowners.ParsedOwner{
 		{Pattern: "*.go", Owner: "@user1", OwnerType: "user", LineNumber: ln1},
 		{Pattern: "src/", Owner: "@org/team-a", OwnerType: "team", LineNumber: ln2},
 		{Pattern: "docs/", Owner: "@org/team-b", OwnerType: "team", LineNumber: ln3},

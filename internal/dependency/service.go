@@ -7,7 +7,7 @@ import (
 
 	gogithub "github.com/google/go-github/v69/github"
 	"github.com/google/uuid"
-	"github.com/nesbite/atlas/internal/dependency/parser"
+	"github.com/nesbite/atlas/internal/ingest/parsers/npm"
 )
 
 // DepSyncer is the interface consumed by org.syncRepos. It decouples the org
@@ -66,7 +66,7 @@ func (s *Service) SyncRepoDeps(ctx context.Context, ghClient *gogithub.Client, r
 	}
 
 	// Step 3: Fetch and parse each package.json.
-	var allDeps []parser.ParsedDep
+	var allDeps []npm.ParsedDep
 	for _, path := range pkgPaths {
 		fileContent, _, _, err := ghClient.Repositories.GetContents(ctx, owner, repo, path, nil)
 		if err != nil {
@@ -82,7 +82,7 @@ func (s *Service) SyncRepoDeps(ctx context.Context, ghClient *gogithub.Client, r
 			continue
 		}
 
-		deps := parser.ParsePackageJSON([]byte(raw), path)
+		deps := npm.ParsePackageJSON([]byte(raw), path)
 		allDeps = append(allDeps, deps...)
 	}
 
