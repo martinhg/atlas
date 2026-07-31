@@ -620,3 +620,237 @@ func TestSyncRepoDeps_discovers_composer_json(t *testing.T) {
 	}
 }
 
+// TestMatchCargoToml verifies that matchCargoToml correctly identifies
+// valid Cargo.toml paths and excludes anything under a target/ directory
+// (Cargo's build output directory).
+func TestMatchCargoToml(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"Cargo.toml", true},
+		{"crates/core/Cargo.toml", true},
+		{"target/debug/Cargo.toml", false},
+		{"deep/target/debug/Cargo.toml", false},
+		{"my-Cargo.toml", false},
+		{"main.go", false},
+		{"README.md", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got := matchCargoToml(tt.path)
+			if got != tt.want {
+				t.Errorf("matchCargoToml(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestSyncRepoDeps_discovers_cargo_toml verifies that SyncRepoDeps
+// discovers, fetches, and parses a Cargo.toml alongside a package.json in
+// the same tree — proving the ecosystem dispatch table handles the
+// crates.io ecosystem too.
+func TestSyncRepoDeps_discovers_cargo_toml(t *testing.T) {
+	var fetchedPaths []string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if strings.Contains(r.URL.Path, "/git/trees/") {
+			resp := treeResponse{
+				SHA:       "abc123",
+				Truncated: false,
+				Tree: []treeEntry{
+					{Path: "package.json", Type: "blob"},
+					{Path: "Cargo.toml", Type: "blob"},
+					{Path: "target/debug/Cargo.toml", Type: "blob"},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		if strings.Contains(r.URL.Path, "/contents/") {
+			parts := strings.SplitN(r.URL.Path, "/contents/", 2)
+			path := ""
+			if len(parts) == 2 {
+				path = parts[1]
+				fetchedPaths = append(fetchedPaths, path)
+			}
+
+			var content string
+			switch path {
+			case "Cargo.toml":
+				content = "[dependencies]\nserde = \"1.0\"\n"
+			default:
+				content = `{"dependencies":{"react":"^18.0.0"}}`
+			}
+			encoded := base64.StdEncoding.EncodeToString([]byte(content))
+			resp := map[string]string{
+				"type":     "file",
+				"encoding": "base64",
+				"content":  encoded,
+				"name":     path,
+				"path":     path,
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	client := newGitHubClientForTest(t, srv.URL)
+	store := &mockDepStore{}
+	svc := NewService(store)
+
+	err := svc.SyncRepoDeps(context.Background(), client, uuid.New(), "acme", "web-app", "main")
+	if err != nil {
+		t.Fatalf("SyncRepoDeps: unexpected error: %v", err)
+	}
+
+	for _, p := range fetchedPaths {
+		if strings.Contains(p, "target/") {
+			t.Errorf("fetched target/ path: %q — should have been excluded", p)
+		}
+	}
+	if len(fetchedPaths) != 2 {
+		t.Fatalf("expected 2 content fetches (package.json + Cargo.toml), got %d: %v", len(fetchedPaths), fetchedPaths)
+	}
+
+	if len(store.syncCalls) != 1 {
+		t.Fatalf("expected 1 SyncRepoDependencies call, got %d", len(store.syncCalls))
+	}
+	deps := store.syncCalls[0].deps
+	if len(deps) != 2 {
+		t.Fatalf("expected 2 synced deps, got %d: %+v", len(deps), deps)
+	}
+	byEcosystem := map[string]bool{}
+	for _, d := range deps {
+		byEcosystem[d.Ecosystem] = true
+	}
+	if !byEcosystem["npm"] || !byEcosystem["crates.io"] {
+		t.Errorf("expected npm and crates.io ecosystems in synced deps, got %+v", deps)
+	}
+}
+
+// TestMatchPomXML verifies that matchPomXML correctly identifies valid
+// pom.xml paths and excludes anything under target/ (Maven's build output
+// directory) or .mvn/ (the Maven Wrapper directory).
+func TestMatchPomXML(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"pom.xml", true},
+		{"modules/billing/pom.xml", true},
+		{"target/classes/pom.xml", false},
+		{"deep/target/classes/pom.xml", false},
+		{".mvn/wrapper/pom.xml", false},
+		{"my-pom.xml", false},
+		{"main.go", false},
+		{"README.md", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got := matchPomXML(tt.path)
+			if got != tt.want {
+				t.Errorf("matchPomXML(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestSyncRepoDeps_discovers_pom_xml verifies that SyncRepoDeps discovers,
+// fetches, and parses a pom.xml alongside a package.json in the same tree —
+// proving the ecosystem dispatch table handles the Maven ecosystem too.
+func TestSyncRepoDeps_discovers_pom_xml(t *testing.T) {
+	var fetchedPaths []string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if strings.Contains(r.URL.Path, "/git/trees/") {
+			resp := treeResponse{
+				SHA:       "abc123",
+				Truncated: false,
+				Tree: []treeEntry{
+					{Path: "package.json", Type: "blob"},
+					{Path: "pom.xml", Type: "blob"},
+					{Path: "target/classes/pom.xml", Type: "blob"},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		if strings.Contains(r.URL.Path, "/contents/") {
+			parts := strings.SplitN(r.URL.Path, "/contents/", 2)
+			path := ""
+			if len(parts) == 2 {
+				path = parts[1]
+				fetchedPaths = append(fetchedPaths, path)
+			}
+
+			var content string
+			switch path {
+			case "pom.xml":
+				content = "<project><dependencies><dependency>" +
+					"<groupId>com.google.guava</groupId><artifactId>guava</artifactId><version>31.1-jre</version>" +
+					"</dependency></dependencies></project>"
+			default:
+				content = `{"dependencies":{"react":"^18.0.0"}}`
+			}
+			encoded := base64.StdEncoding.EncodeToString([]byte(content))
+			resp := map[string]string{
+				"type":     "file",
+				"encoding": "base64",
+				"content":  encoded,
+				"name":     path,
+				"path":     path,
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	client := newGitHubClientForTest(t, srv.URL)
+	store := &mockDepStore{}
+	svc := NewService(store)
+
+	err := svc.SyncRepoDeps(context.Background(), client, uuid.New(), "acme", "web-app", "main")
+	if err != nil {
+		t.Fatalf("SyncRepoDeps: unexpected error: %v", err)
+	}
+
+	for _, p := range fetchedPaths {
+		if strings.Contains(p, "target/") {
+			t.Errorf("fetched target/ path: %q — should have been excluded", p)
+		}
+	}
+	if len(fetchedPaths) != 2 {
+		t.Fatalf("expected 2 content fetches (package.json + pom.xml), got %d: %v", len(fetchedPaths), fetchedPaths)
+	}
+
+	if len(store.syncCalls) != 1 {
+		t.Fatalf("expected 1 SyncRepoDependencies call, got %d", len(store.syncCalls))
+	}
+	deps := store.syncCalls[0].deps
+	if len(deps) != 2 {
+		t.Fatalf("expected 2 synced deps, got %d: %+v", len(deps), deps)
+	}
+	byEcosystem := map[string]bool{}
+	for _, d := range deps {
+		byEcosystem[d.Ecosystem] = true
+	}
+	if !byEcosystem["npm"] || !byEcosystem["Maven"] {
+		t.Errorf("expected npm and Maven ecosystems in synced deps, got %+v", deps)
+	}
+}
+

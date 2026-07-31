@@ -7,9 +7,11 @@ import (
 
 	gogithub "github.com/google/go-github/v69/github"
 	"github.com/google/uuid"
+	"github.com/nesbite/atlas/internal/ingest/parsers/cargo"
 	"github.com/nesbite/atlas/internal/ingest/parsers/composer"
 	"github.com/nesbite/atlas/internal/ingest/parsers/depmodel"
 	"github.com/nesbite/atlas/internal/ingest/parsers/gomod"
+	"github.com/nesbite/atlas/internal/ingest/parsers/maven"
 	"github.com/nesbite/atlas/internal/ingest/parsers/npm"
 	"github.com/nesbite/atlas/internal/ingest/parsers/pip"
 )
@@ -47,6 +49,8 @@ var ecosystems = []ecosystemEntry{
 	{Name: "composer", MatchPath: matchComposer, Parse: composer.ParseComposerJSON},
 	{Name: "gomod", MatchPath: matchGoMod, Parse: gomod.ParseGoMod},
 	{Name: "pip", MatchPath: matchRequirementsTxt, Parse: pip.ParseRequirementsTxt},
+	{Name: "cargo", MatchPath: matchCargoToml, Parse: cargo.ParseCargoToml},
+	{Name: "maven", MatchPath: matchPomXML, Parse: maven.ParsePomXML},
 }
 
 // SyncRepoDeps discovers every supported manifest file in the repo (see the
@@ -165,4 +169,26 @@ func matchRequirementsTxt(path string) bool {
 		}
 	}
 	return path == "requirements.txt" || strings.HasSuffix(path, "/requirements.txt")
+}
+
+// matchCargoToml returns true when path points to a Cargo.toml file that is
+// NOT inside a target directory (Cargo's build output directory). The
+// filename component must be exactly "Cargo.toml" — e.g. "my-Cargo.toml"
+// does NOT match.
+func matchCargoToml(path string) bool {
+	if strings.Contains(path, "target/") {
+		return false
+	}
+	return path == "Cargo.toml" || strings.HasSuffix(path, "/Cargo.toml")
+}
+
+// matchPomXML returns true when path points to a pom.xml file that is NOT
+// inside a target directory (Maven's build output directory) or a .mvn
+// directory (the Maven Wrapper directory). The filename component must be
+// exactly "pom.xml" — e.g. "my-pom.xml" does NOT match.
+func matchPomXML(path string) bool {
+	if strings.Contains(path, "target/") || strings.Contains(path, ".mvn/") {
+		return false
+	}
+	return path == "pom.xml" || strings.HasSuffix(path, "/pom.xml")
 }

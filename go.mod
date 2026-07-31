@@ -3,6 +3,7 @@ module github.com/nesbite/atlas
 go 1.26.4
 
 require (
+	github.com/BurntSushi/toml v1.6.0
 	github.com/bradleyfalzon/ghinstallation/v2 v2.19.0
 	github.com/go-chi/chi/v5 v5.3.0
 	github.com/go-chi/cors v1.2.2

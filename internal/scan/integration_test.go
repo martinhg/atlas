@@ -4,13 +4,13 @@ import "testing"
 
 // TestRun_endToEndAgainstTestdata exercises the full scan pipeline
 // (NpmScanner + ComposerScanner + GoModScanner + PipScanner +
-// CodeownersScanner via Run) against a real fixture directory under
-// testdata/, rather than mocked scanners or t.TempDir fixtures. This is the
-// integration test required by the PR tasks: it verifies the scanners, the
-// parsers they depend on, and Report aggregation all work together
-// correctly end-to-end.
+// CargoScanner + MavenScanner + CodeownersScanner via Run) against a real
+// fixture directory under testdata/, rather than mocked scanners or
+// t.TempDir fixtures. This is the integration test required by the PR
+// tasks: it verifies the scanners, the parsers they depend on, and Report
+// aggregation all work together correctly end-to-end.
 func TestRun_endToEndAgainstTestdata(t *testing.T) {
-	scanners := []EcosystemScanner{NpmScanner{}, NewComposerScanner(), NewGoModScanner(), NewPipScanner(), CodeownersScanner{}}
+	scanners := []EcosystemScanner{NpmScanner{}, NewComposerScanner(), NewGoModScanner(), NewPipScanner(), NewCargoScanner(), NewMavenScanner(), CodeownersScanner{}}
 
 	report, err := Run("testdata/sample-repo", scanners)
 	if err != nil {
@@ -21,8 +21,8 @@ func TestRun_endToEndAgainstTestdata(t *testing.T) {
 		t.Errorf("expected no warnings for a well-formed fixture, got %+v", report.Warnings)
 	}
 
-	if len(report.Dependencies) != 6 {
-		t.Fatalf("expected 6 dependencies (react + vitest + monolog/monolog + uuid + x/sync + requests), got %+v", report.Dependencies)
+	if len(report.Dependencies) != 9 {
+		t.Fatalf("expected 9 dependencies (react + vitest + monolog/monolog + uuid + x/sync + requests + serde + guava + junit), got %+v", report.Dependencies)
 	}
 	names := map[string]Dependency{}
 	for _, dep := range report.Dependencies {
@@ -65,6 +65,27 @@ func TestRun_endToEndAgainstTestdata(t *testing.T) {
 	}
 	if requests.Version != "==2.28.1" || requests.DepType != "dep" || requests.Ecosystem != "PyPI" {
 		t.Errorf("unexpected requests dependency fields: %+v", requests)
+	}
+	serde, ok := names["serde"]
+	if !ok {
+		t.Fatal("expected a \"serde\" dependency in the report")
+	}
+	if serde.Version != "1.0" || serde.DepType != "dep" || serde.Ecosystem != "crates.io" {
+		t.Errorf("unexpected serde dependency fields: %+v", serde)
+	}
+	guava, ok := names["com.google.guava:guava"]
+	if !ok {
+		t.Fatal("expected a \"com.google.guava:guava\" dependency in the report")
+	}
+	if guava.Version != "31.1-jre" || guava.DepType != "dep" || guava.Ecosystem != "Maven" {
+		t.Errorf("unexpected com.google.guava:guava dependency fields: %+v", guava)
+	}
+	junitDep, ok := names["junit:junit"]
+	if !ok {
+		t.Fatal("expected a \"junit:junit\" dependency in the report")
+	}
+	if junitDep.Version != "4.13.2" || junitDep.DepType != "devDep" || junitDep.Ecosystem != "Maven" {
+		t.Errorf("unexpected junit:junit dependency fields: %+v", junitDep)
 	}
 
 	if len(report.Owners) != 2 {
