@@ -7,6 +7,7 @@ import (
 
 	gogithub "github.com/google/go-github/v69/github"
 	"github.com/google/uuid"
+	"github.com/nesbite/atlas/internal/ingest/parsers/depmodel"
 	"github.com/nesbite/atlas/internal/ingest/parsers/npm"
 )
 
@@ -66,7 +67,7 @@ func (s *Service) SyncRepoDeps(ctx context.Context, ghClient *gogithub.Client, r
 	}
 
 	// Step 3: Fetch and parse each package.json.
-	var allDeps []npm.ParsedDep
+	var allDeps []depmodel.ParsedDep
 	for _, path := range pkgPaths {
 		fileContent, _, _, err := ghClient.Repositories.GetContents(ctx, owner, repo, path, nil)
 		if err != nil {
