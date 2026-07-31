@@ -7,6 +7,7 @@ import (
 
 	gogithub "github.com/google/go-github/v69/github"
 	"github.com/google/uuid"
+	"github.com/nesbite/atlas/internal/ingest/parsers/composer"
 	"github.com/nesbite/atlas/internal/ingest/parsers/depmodel"
 	"github.com/nesbite/atlas/internal/ingest/parsers/npm"
 )
@@ -28,9 +29,25 @@ func NewService(store DepStore) *Service {
 	return &Service{store: store}
 }
 
-// SyncRepoDeps discovers all package.json files in the repo (excluding
-// node_modules/), fetches and parses each one, and persists the results via
-// the store. It satisfies the DepSyncer interface.
+// ecosystemEntry pairs a manifest path matcher with its parse function for
+// one dependency ecosystem. Adding a new ecosystem means appending one
+// entry to the ecosystems slice below — SyncRepoDeps itself never changes.
+type ecosystemEntry struct {
+	Name      string
+	MatchPath func(path string) bool
+	Parse     func(data []byte, sourcePath string) []depmodel.ParsedDep
+}
+
+// ecosystems is the dispatch table SyncRepoDeps iterates over to discover
+// and parse every supported manifest type found in a repo's tree.
+var ecosystems = []ecosystemEntry{
+	{Name: "npm", MatchPath: matchNpm, Parse: npm.ParsePackageJSON},
+	{Name: "composer", MatchPath: matchComposer, Parse: composer.ParseComposerJSON},
+}
+
+// SyncRepoDeps discovers every supported manifest file in the repo (see the
+// ecosystems dispatch table), fetches and parses each one, and persists the
+// combined results via the store. It satisfies the DepSyncer interface.
 //
 // Error policy: GitHub API errors are logged and the function returns nil
 // so that sync of other repos continues uninterrupted.
@@ -49,41 +66,47 @@ func (s *Service) SyncRepoDeps(ctx context.Context, ghClient *gogithub.Client, r
 			"owner", owner, "repo", repo)
 	}
 
-	// Step 2: Collect package.json paths, excluding node_modules/.
-	var pkgPaths []string
+	// Step 2: Match every blob against the ecosystem dispatch table.
+	type manifest struct {
+		path  string
+		parse func(data []byte, sourcePath string) []depmodel.ParsedDep
+	}
+	var manifests []manifest
 	for _, entry := range tree.Entries {
 		path := entry.GetPath()
 		if entry.GetType() != "blob" {
 			continue
 		}
-		if !isPackageJSON(path) {
-			continue
+		for _, eco := range ecosystems {
+			if eco.MatchPath(path) {
+				manifests = append(manifests, manifest{path: path, parse: eco.Parse})
+				break
+			}
 		}
-		pkgPaths = append(pkgPaths, path)
 	}
 
-	if len(pkgPaths) == 0 {
-		return nil // no package.json — nothing to sync
+	if len(manifests) == 0 {
+		return nil // no supported manifests — nothing to sync
 	}
 
-	// Step 3: Fetch and parse each package.json.
+	// Step 3: Fetch and parse each manifest.
 	var allDeps []depmodel.ParsedDep
-	for _, path := range pkgPaths {
-		fileContent, _, _, err := ghClient.Repositories.GetContents(ctx, owner, repo, path, nil)
+	for _, m := range manifests {
+		fileContent, _, _, err := ghClient.Repositories.GetContents(ctx, owner, repo, m.path, nil)
 		if err != nil {
-			slog.Error("dependency sync: failed to fetch package.json",
-				"owner", owner, "repo", repo, "path", path, "error", err)
+			slog.Error("dependency sync: failed to fetch manifest",
+				"owner", owner, "repo", repo, "path", m.path, "error", err)
 			continue // skip this file, continue with others
 		}
 
 		raw, err := fileContent.GetContent()
 		if err != nil {
-			slog.Error("dependency sync: failed to decode package.json content",
-				"owner", owner, "repo", repo, "path", path, "error", err)
+			slog.Error("dependency sync: failed to decode manifest content",
+				"owner", owner, "repo", repo, "path", m.path, "error", err)
 			continue
 		}
 
-		deps := npm.ParsePackageJSON([]byte(raw), path)
+		deps := m.parse([]byte(raw), m.path)
 		allDeps = append(allDeps, deps...)
 	}
 
@@ -97,12 +120,22 @@ func (s *Service) SyncRepoDeps(ctx context.Context, ghClient *gogithub.Client, r
 	return nil
 }
 
-// isPackageJSON returns true when path points to a package.json file
-// that is NOT inside a node_modules directory. The filename component
-// must be exactly "package.json" — e.g. "my-package.json" does NOT match.
-func isPackageJSON(path string) bool {
+// matchNpm returns true when path points to a package.json file that is NOT
+// inside a node_modules directory. The filename component must be exactly
+// "package.json" — e.g. "my-package.json" does NOT match.
+func matchNpm(path string) bool {
 	if strings.Contains(path, "node_modules/") {
 		return false
 	}
 	return path == "package.json" || strings.HasSuffix(path, "/package.json")
+}
+
+// matchComposer returns true when path points to a composer.json file that
+// is NOT inside a vendor directory. The filename component must be exactly
+// "composer.json" — e.g. "my-composer.json" does NOT match.
+func matchComposer(path string) bool {
+	if strings.Contains(path, "vendor/") {
+		return false
+	}
+	return path == "composer.json" || strings.HasSuffix(path, "/composer.json")
 }

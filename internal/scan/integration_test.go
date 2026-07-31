@@ -3,13 +3,13 @@ package scan
 import "testing"
 
 // TestRun_endToEndAgainstTestdata exercises the full scan pipeline
-// (NpmScanner + CodeownersScanner via Run) against a real fixture directory
-// under testdata/, rather than mocked scanners or t.TempDir fixtures. This
-// is the integration test required by the PR 3 tasks: it verifies the
-// scanners, the parsers they depend on, and Report aggregation all work
-// together correctly end-to-end.
+// (NpmScanner + ComposerScanner + CodeownersScanner via Run) against a real
+// fixture directory under testdata/, rather than mocked scanners or
+// t.TempDir fixtures. This is the integration test required by the PR 3
+// tasks: it verifies the scanners, the parsers they depend on, and Report
+// aggregation all work together correctly end-to-end.
 func TestRun_endToEndAgainstTestdata(t *testing.T) {
-	scanners := []EcosystemScanner{NpmScanner{}, CodeownersScanner{}}
+	scanners := []EcosystemScanner{NpmScanner{}, NewComposerScanner(), CodeownersScanner{}}
 
 	report, err := Run("testdata/sample-repo", scanners)
 	if err != nil {
@@ -20,8 +20,8 @@ func TestRun_endToEndAgainstTestdata(t *testing.T) {
 		t.Errorf("expected no warnings for a well-formed fixture, got %+v", report.Warnings)
 	}
 
-	if len(report.Dependencies) != 2 {
-		t.Fatalf("expected 2 dependencies (react + vitest), got %+v", report.Dependencies)
+	if len(report.Dependencies) != 3 {
+		t.Fatalf("expected 3 dependencies (react + vitest + monolog/monolog), got %+v", report.Dependencies)
 	}
 	names := map[string]Dependency{}
 	for _, dep := range report.Dependencies {
@@ -36,6 +36,13 @@ func TestRun_endToEndAgainstTestdata(t *testing.T) {
 	}
 	if _, ok := names["vitest"]; !ok {
 		t.Error("expected a \"vitest\" devDependency in the report")
+	}
+	monolog, ok := names["monolog/monolog"]
+	if !ok {
+		t.Fatal("expected a \"monolog/monolog\" dependency in the report")
+	}
+	if monolog.Version != "^2.9" || monolog.DepType != "dep" || monolog.Ecosystem != "Packagist" {
+		t.Errorf("unexpected monolog/monolog dependency fields: %+v", monolog)
 	}
 
 	if len(report.Owners) != 2 {

@@ -240,9 +240,9 @@ func TestMockDepStoreForService_satisfies_DepStore(t *testing.T) {
 	var _ DepStore = &mockDepStore{}
 }
 
-// TestIsPackageJSON verifies that isPackageJSON correctly identifies valid
+// TestMatchNpm verifies that matchNpm correctly identifies valid
 // package.json paths and rejects false positives like "my-package.json".
-func TestIsPackageJSON(t *testing.T) {
+func TestMatchNpm(t *testing.T) {
 	tests := []struct {
 		path string
 		want bool
@@ -261,11 +261,127 @@ func TestIsPackageJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
-			got := isPackageJSON(tt.path)
+			got := matchNpm(tt.path)
 			if got != tt.want {
-				t.Errorf("isPackageJSON(%q) = %v, want %v", tt.path, got, tt.want)
+				t.Errorf("matchNpm(%q) = %v, want %v", tt.path, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestMatchComposer verifies that matchComposer correctly identifies valid
+// composer.json paths and excludes anything under vendor/.
+func TestMatchComposer(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"composer.json", true},
+		{"modules/billing/composer.json", true},
+		{"vendor/monolog/monolog/composer.json", false},
+		{"deep/vendor/acme/lib/composer.json", false},
+		{"my-composer.json", false},
+		{"not-a-composer.json", false},
+		{"main.go", false},
+		{"README.md", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got := matchComposer(tt.path)
+			if got != tt.want {
+				t.Errorf("matchComposer(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestSyncRepoDeps_discovers_composer_json verifies that SyncRepoDeps
+// discovers, fetches, and parses a composer.json alongside a package.json
+// in the same tree — proving the ecosystem dispatch table handles multiple
+// ecosystems in a single sync.
+func TestSyncRepoDeps_discovers_composer_json(t *testing.T) {
+	var fetchedPaths []string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if strings.Contains(r.URL.Path, "/git/trees/") {
+			resp := treeResponse{
+				SHA:       "abc123",
+				Truncated: false,
+				Tree: []treeEntry{
+					{Path: "package.json", Type: "blob"},
+					{Path: "composer.json", Type: "blob"},
+					{Path: "vendor/monolog/monolog/composer.json", Type: "blob"},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		if strings.Contains(r.URL.Path, "/contents/") {
+			parts := strings.SplitN(r.URL.Path, "/contents/", 2)
+			path := ""
+			if len(parts) == 2 {
+				path = parts[1]
+				fetchedPaths = append(fetchedPaths, path)
+			}
+
+			var content string
+			switch path {
+			case "composer.json":
+				content = `{"require":{"monolog/monolog":"^2.0"}}`
+			default:
+				content = `{"dependencies":{"react":"^18.0.0"}}`
+			}
+			encoded := base64.StdEncoding.EncodeToString([]byte(content))
+			resp := map[string]string{
+				"type":     "file",
+				"encoding": "base64",
+				"content":  encoded,
+				"name":     path,
+				"path":     path,
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	client := newGitHubClientForTest(t, srv.URL)
+	store := &mockDepStore{}
+	svc := NewService(store)
+
+	err := svc.SyncRepoDeps(context.Background(), client, uuid.New(), "acme", "web-app", "main")
+	if err != nil {
+		t.Fatalf("SyncRepoDeps: unexpected error: %v", err)
+	}
+
+	for _, p := range fetchedPaths {
+		if strings.Contains(p, "vendor/") {
+			t.Errorf("fetched vendor/ path: %q — should have been excluded", p)
+		}
+	}
+	if len(fetchedPaths) != 2 {
+		t.Fatalf("expected 2 content fetches (package.json + composer.json), got %d: %v", len(fetchedPaths), fetchedPaths)
+	}
+
+	if len(store.syncCalls) != 1 {
+		t.Fatalf("expected 1 SyncRepoDependencies call, got %d", len(store.syncCalls))
+	}
+	deps := store.syncCalls[0].deps
+	if len(deps) != 2 {
+		t.Fatalf("expected 2 synced deps, got %d: %+v", len(deps), deps)
+	}
+	byEcosystem := map[string]bool{}
+	for _, d := range deps {
+		byEcosystem[d.Ecosystem] = true
+	}
+	if !byEcosystem["npm"] || !byEcosystem["Packagist"] {
+		t.Errorf("expected npm and Packagist ecosystems in synced deps, got %+v", deps)
 	}
 }
 

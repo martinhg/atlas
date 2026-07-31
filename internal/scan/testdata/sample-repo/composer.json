@@ -1,0 +1,7 @@
+{
+  "name": "sample-repo/backend",
+  "require": {
+    "php": ">=8.2",
+    "monolog/monolog": "^2.9"
+  }
+}
