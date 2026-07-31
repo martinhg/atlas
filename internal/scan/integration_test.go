@@ -3,13 +3,14 @@ package scan
 import "testing"
 
 // TestRun_endToEndAgainstTestdata exercises the full scan pipeline
-// (NpmScanner + ComposerScanner + CodeownersScanner via Run) against a real
-// fixture directory under testdata/, rather than mocked scanners or
-// t.TempDir fixtures. This is the integration test required by the PR 3
-// tasks: it verifies the scanners, the parsers they depend on, and Report
-// aggregation all work together correctly end-to-end.
+// (NpmScanner + ComposerScanner + GoModScanner + PipScanner +
+// CodeownersScanner via Run) against a real fixture directory under
+// testdata/, rather than mocked scanners or t.TempDir fixtures. This is the
+// integration test required by the PR tasks: it verifies the scanners, the
+// parsers they depend on, and Report aggregation all work together
+// correctly end-to-end.
 func TestRun_endToEndAgainstTestdata(t *testing.T) {
-	scanners := []EcosystemScanner{NpmScanner{}, NewComposerScanner(), CodeownersScanner{}}
+	scanners := []EcosystemScanner{NpmScanner{}, NewComposerScanner(), NewGoModScanner(), NewPipScanner(), CodeownersScanner{}}
 
 	report, err := Run("testdata/sample-repo", scanners)
 	if err != nil {
@@ -20,8 +21,8 @@ func TestRun_endToEndAgainstTestdata(t *testing.T) {
 		t.Errorf("expected no warnings for a well-formed fixture, got %+v", report.Warnings)
 	}
 
-	if len(report.Dependencies) != 3 {
-		t.Fatalf("expected 3 dependencies (react + vitest + monolog/monolog), got %+v", report.Dependencies)
+	if len(report.Dependencies) != 6 {
+		t.Fatalf("expected 6 dependencies (react + vitest + monolog/monolog + uuid + x/sync + requests), got %+v", report.Dependencies)
 	}
 	names := map[string]Dependency{}
 	for _, dep := range report.Dependencies {
@@ -43,6 +44,27 @@ func TestRun_endToEndAgainstTestdata(t *testing.T) {
 	}
 	if monolog.Version != "^2.9" || monolog.DepType != "dep" || monolog.Ecosystem != "Packagist" {
 		t.Errorf("unexpected monolog/monolog dependency fields: %+v", monolog)
+	}
+	uuidDep, ok := names["github.com/google/uuid"]
+	if !ok {
+		t.Fatal("expected a \"github.com/google/uuid\" dependency in the report")
+	}
+	if uuidDep.Version != "v1.6.0" || uuidDep.DepType != "dep" || uuidDep.Ecosystem != "Go" {
+		t.Errorf("unexpected github.com/google/uuid dependency fields: %+v", uuidDep)
+	}
+	xsync, ok := names["golang.org/x/sync"]
+	if !ok {
+		t.Fatal("expected a \"golang.org/x/sync\" dependency in the report")
+	}
+	if xsync.Version != "v0.17.0" || xsync.DepType != "indirect" || xsync.Ecosystem != "Go" {
+		t.Errorf("unexpected golang.org/x/sync dependency fields: %+v", xsync)
+	}
+	requests, ok := names["requests"]
+	if !ok {
+		t.Fatal("expected a \"requests\" dependency in the report")
+	}
+	if requests.Version != "==2.28.1" || requests.DepType != "dep" || requests.Ecosystem != "PyPI" {
+		t.Errorf("unexpected requests dependency fields: %+v", requests)
 	}
 
 	if len(report.Owners) != 2 {

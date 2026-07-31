@@ -9,7 +9,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/nesbite/atlas/internal/ingest/parsers/composer"
 	"github.com/nesbite/atlas/internal/ingest/parsers/depmodel"
+	"github.com/nesbite/atlas/internal/ingest/parsers/gomod"
 	"github.com/nesbite/atlas/internal/ingest/parsers/npm"
+	"github.com/nesbite/atlas/internal/ingest/parsers/pip"
 )
 
 // DepSyncer is the interface consumed by org.syncRepos. It decouples the org
@@ -43,6 +45,8 @@ type ecosystemEntry struct {
 var ecosystems = []ecosystemEntry{
 	{Name: "npm", MatchPath: matchNpm, Parse: npm.ParsePackageJSON},
 	{Name: "composer", MatchPath: matchComposer, Parse: composer.ParseComposerJSON},
+	{Name: "gomod", MatchPath: matchGoMod, Parse: gomod.ParseGoMod},
+	{Name: "pip", MatchPath: matchRequirementsTxt, Parse: pip.ParseRequirementsTxt},
 }
 
 // SyncRepoDeps discovers every supported manifest file in the repo (see the
@@ -138,4 +142,27 @@ func matchComposer(path string) bool {
 		return false
 	}
 	return path == "composer.json" || strings.HasSuffix(path, "/composer.json")
+}
+
+// matchGoMod returns true when path points to a go.mod file that is NOT
+// inside a vendor directory. The filename component must be exactly
+// "go.mod" — e.g. "my-go.mod" does NOT match.
+func matchGoMod(path string) bool {
+	if strings.Contains(path, "vendor/") {
+		return false
+	}
+	return path == "go.mod" || strings.HasSuffix(path, "/go.mod")
+}
+
+// matchRequirementsTxt returns true when path points to a requirements.txt
+// file that is NOT inside a Python virtual environment or cache directory
+// (.venv/, venv/, .tox/, __pycache__/). The filename component must be
+// exactly "requirements.txt" — e.g. "my-requirements.txt" does NOT match.
+func matchRequirementsTxt(path string) bool {
+	for _, dir := range []string{".venv/", "venv/", ".tox/", "__pycache__/"} {
+		if strings.Contains(path, dir) {
+			return false
+		}
+	}
+	return path == "requirements.txt" || strings.HasSuffix(path, "/requirements.txt")
 }

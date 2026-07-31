@@ -296,6 +296,241 @@ func TestMatchComposer(t *testing.T) {
 	}
 }
 
+// TestMatchGoMod verifies that matchGoMod correctly identifies valid go.mod
+// paths and excludes anything under vendor/.
+func TestMatchGoMod(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"go.mod", true},
+		{"modules/billing/go.mod", true},
+		{"vendor/github.com/foo/bar/go.mod", false},
+		{"deep/vendor/acme/lib/go.mod", false},
+		{"my-go.mod", false},
+		{"not-a-go.mod", false},
+		{"main.go", false},
+		{"README.md", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got := matchGoMod(tt.path)
+			if got != tt.want {
+				t.Errorf("matchGoMod(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestSyncRepoDeps_discovers_go_mod verifies that SyncRepoDeps discovers,
+// fetches, and parses a go.mod alongside a package.json in the same tree —
+// proving the ecosystem dispatch table handles the Go ecosystem too.
+func TestSyncRepoDeps_discovers_go_mod(t *testing.T) {
+	var fetchedPaths []string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if strings.Contains(r.URL.Path, "/git/trees/") {
+			resp := treeResponse{
+				SHA:       "abc123",
+				Truncated: false,
+				Tree: []treeEntry{
+					{Path: "package.json", Type: "blob"},
+					{Path: "go.mod", Type: "blob"},
+					{Path: "vendor/github.com/foo/bar/go.mod", Type: "blob"},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		if strings.Contains(r.URL.Path, "/contents/") {
+			parts := strings.SplitN(r.URL.Path, "/contents/", 2)
+			path := ""
+			if len(parts) == 2 {
+				path = parts[1]
+				fetchedPaths = append(fetchedPaths, path)
+			}
+
+			var content string
+			switch path {
+			case "go.mod":
+				content = "module acme\n\ngo 1.26\n\nrequire github.com/google/uuid v1.6.0\n"
+			default:
+				content = `{"dependencies":{"react":"^18.0.0"}}`
+			}
+			encoded := base64.StdEncoding.EncodeToString([]byte(content))
+			resp := map[string]string{
+				"type":     "file",
+				"encoding": "base64",
+				"content":  encoded,
+				"name":     path,
+				"path":     path,
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	client := newGitHubClientForTest(t, srv.URL)
+	store := &mockDepStore{}
+	svc := NewService(store)
+
+	err := svc.SyncRepoDeps(context.Background(), client, uuid.New(), "acme", "web-app", "main")
+	if err != nil {
+		t.Fatalf("SyncRepoDeps: unexpected error: %v", err)
+	}
+
+	for _, p := range fetchedPaths {
+		if strings.Contains(p, "vendor/") {
+			t.Errorf("fetched vendor/ path: %q — should have been excluded", p)
+		}
+	}
+	if len(fetchedPaths) != 2 {
+		t.Fatalf("expected 2 content fetches (package.json + go.mod), got %d: %v", len(fetchedPaths), fetchedPaths)
+	}
+
+	if len(store.syncCalls) != 1 {
+		t.Fatalf("expected 1 SyncRepoDependencies call, got %d", len(store.syncCalls))
+	}
+	deps := store.syncCalls[0].deps
+	if len(deps) != 2 {
+		t.Fatalf("expected 2 synced deps, got %d: %+v", len(deps), deps)
+	}
+	byEcosystem := map[string]bool{}
+	for _, d := range deps {
+		byEcosystem[d.Ecosystem] = true
+	}
+	if !byEcosystem["npm"] || !byEcosystem["Go"] {
+		t.Errorf("expected npm and Go ecosystems in synced deps, got %+v", deps)
+	}
+}
+
+// TestMatchRequirementsTxt verifies that matchRequirementsTxt correctly
+// identifies valid requirements.txt paths and excludes anything under
+// Python virtual environment or cache directories.
+func TestMatchRequirementsTxt(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"requirements.txt", true},
+		{"services/worker/requirements.txt", true},
+		{".venv/lib/requirements.txt", false},
+		{"venv/lib/requirements.txt", false},
+		{".tox/py311/requirements.txt", false},
+		{"__pycache__/requirements.txt", false},
+		{"deep/.venv/lib/requirements.txt", false},
+		{"my-requirements.txt", false},
+		{"not-a-requirements.txt", false},
+		{"main.go", false},
+		{"README.md", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got := matchRequirementsTxt(tt.path)
+			if got != tt.want {
+				t.Errorf("matchRequirementsTxt(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestSyncRepoDeps_discovers_requirements_txt verifies that SyncRepoDeps
+// discovers, fetches, and parses a requirements.txt alongside a
+// package.json in the same tree — proving the ecosystem dispatch table
+// handles the PyPI ecosystem too.
+func TestSyncRepoDeps_discovers_requirements_txt(t *testing.T) {
+	var fetchedPaths []string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if strings.Contains(r.URL.Path, "/git/trees/") {
+			resp := treeResponse{
+				SHA:       "abc123",
+				Truncated: false,
+				Tree: []treeEntry{
+					{Path: "package.json", Type: "blob"},
+					{Path: "requirements.txt", Type: "blob"},
+					{Path: ".venv/lib/requirements.txt", Type: "blob"},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		if strings.Contains(r.URL.Path, "/contents/") {
+			parts := strings.SplitN(r.URL.Path, "/contents/", 2)
+			path := ""
+			if len(parts) == 2 {
+				path = parts[1]
+				fetchedPaths = append(fetchedPaths, path)
+			}
+
+			var content string
+			switch path {
+			case "requirements.txt":
+				content = "requests==2.28.1\n"
+			default:
+				content = `{"dependencies":{"react":"^18.0.0"}}`
+			}
+			encoded := base64.StdEncoding.EncodeToString([]byte(content))
+			resp := map[string]string{
+				"type":     "file",
+				"encoding": "base64",
+				"content":  encoded,
+				"name":     path,
+				"path":     path,
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	client := newGitHubClientForTest(t, srv.URL)
+	store := &mockDepStore{}
+	svc := NewService(store)
+
+	err := svc.SyncRepoDeps(context.Background(), client, uuid.New(), "acme", "web-app", "main")
+	if err != nil {
+		t.Fatalf("SyncRepoDeps: unexpected error: %v", err)
+	}
+
+	for _, p := range fetchedPaths {
+		if strings.Contains(p, ".venv/") {
+			t.Errorf("fetched .venv/ path: %q — should have been excluded", p)
+		}
+	}
+	if len(fetchedPaths) != 2 {
+		t.Fatalf("expected 2 content fetches (package.json + requirements.txt), got %d: %v", len(fetchedPaths), fetchedPaths)
+	}
+
+	if len(store.syncCalls) != 1 {
+		t.Fatalf("expected 1 SyncRepoDependencies call, got %d", len(store.syncCalls))
+	}
+	deps := store.syncCalls[0].deps
+	if len(deps) != 2 {
+		t.Fatalf("expected 2 synced deps, got %d: %+v", len(deps), deps)
+	}
+	byEcosystem := map[string]bool{}
+	for _, d := range deps {
+		byEcosystem[d.Ecosystem] = true
+	}
+	if !byEcosystem["npm"] || !byEcosystem["PyPI"] {
+		t.Errorf("expected npm and PyPI ecosystems in synced deps, got %+v", deps)
+	}
+}
+
 // TestSyncRepoDeps_discovers_composer_json verifies that SyncRepoDeps
 // discovers, fetches, and parses a composer.json alongside a package.json
 // in the same tree — proving the ecosystem dispatch table handles multiple
