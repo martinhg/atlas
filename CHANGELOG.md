@@ -7,6 +7,50 @@ and this project adheres to [Conventional Commits](https://www.conventionalcommi
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-03
+
+Scan any repo, any ecosystem. This release adds the `atlas scan` CLI and
+multi-ecosystem dependency parsing — 8 package managers supported out of
+the box.
+
+### Added
+
+- **CLI `atlas scan`** (Epic 9) — walk a directory tree and report every
+  dependency found, with `--format json|table` and `--path` flags (#41)
+- **Multi-ecosystem parsers** (Apache 2.0) under `internal/ingest/parsers/`:
+  - `npm` — `package.json` (dependencies, devDependencies, peerDependencies, optionalDependencies)
+  - `composer` — `composer.json` (require, require-dev; skips `php` and `ext-*`)
+  - `gomod` — `go.mod` (direct and indirect modules via `golang.org/x/mod/modfile`)
+  - `pip` — `requirements.txt` (extras, markers, hash pins, line continuations)
+  - `maven` — `pom.xml` (same-file `<properties>` resolution, skips `<dependencyManagement>`)
+  - `cargo` — `Cargo.toml` (string, table, and workspace dependency formats)
+  - `pyproject` — `pyproject.toml` (PEP 621 `[project.dependencies]` and `[project.optional-dependencies]`)
+  - `gemfile` — `Gemfile` (custom DSL parser with `group :development, :test do...end` tracking)
+- **Shared `depmodel` package** — `ParsedDep` struct with OSV.dev-exact ecosystem
+  constants and `DepType` classification, shared by all parsers
+- **`WalkDirScanner`** helper in `internal/scan/walk.go` — eliminates ~50 LOC
+  boilerplate per scanner with configurable filename, skip dirs, validate, and parse
+- **CODEOWNERS scanner** — detects ownership files during `atlas scan`
+- **Server-side multi-ecosystem support** — `dependency.Service` now uses an
+  ecosystem dispatch table, syncing dependencies from all 8 manifest types
+  during org sync
+
+### Changed
+
+- Extracted parsers from `internal/dependency/parser/` and
+  `internal/ownership/parser/` into `internal/ingest/parsers/` under Apache 2.0
+  licensing (was BSL 1.1 by inheritance)
+- `dependency.Store.SyncRepoDependencies` now accepts `[]depmodel.ParsedDep`
+  instead of `[]npm.ParsedDep` (npm uses a type alias for zero breaking change)
+
+### Security
+
+- Upgraded `golang.org/x/text` to v0.40.0 (fixes GO-2026-5970)
+- Upgraded `golang.org/x/sync` to v0.22.0
+- Resolved 18 web dependency advisories via pnpm overrides (undici, postcss,
+  react-router, minimatch)
+- Upgraded jsdom to v30.0.1
+
 ## [1.2.0] - 2026-06-19
 
 See the whole org as a graph. This release adds interactive dependency graph

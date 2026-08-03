@@ -155,7 +155,8 @@ For a deeper dive into how these pieces fit together, see [ARCHITECTURE.md](ARCH
 - [x] **v1.1.0** — Deps → Impact → Risk chain complete
 - [x] **Epic 7** — Dependency Graph Visualization (Sigma.js)
 - [x] **v1.2.0** — Interactive dependency graph
-- [ ] **Epic 9** — CLI (`atlas scan`)
+- [x] **Epic 9** — CLI (`atlas scan`) + Multi-Ecosystem Parsers
+- [x] **v1.3.0** — CLI + 8 ecosystem parsers
 
 <hr />
 
