@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	ownerparser "github.com/nesbite/atlas/internal/ownership/parser"
+	"github.com/nesbite/atlas/internal/ingest/parsers/codeowners"
 )
 
 // OwnershipStore defines the persistence contract for the ownership domain.
@@ -14,7 +14,7 @@ type OwnershipStore interface {
 	// SyncRepoOwners replaces all repo_owners rows for the given repo atomically.
 	// Deletes all existing rows for repoID, then inserts owners in a single
 	// transaction. If owners is empty, only the delete is performed (idempotent clear).
-	SyncRepoOwners(ctx context.Context, repoID uuid.UUID, owners []ownerparser.ParsedOwner) error
+	SyncRepoOwners(ctx context.Context, repoID uuid.UUID, owners []codeowners.ParsedOwner) error
 
 	// ListByOrg returns ownership summaries for all repos in an org, paginated.
 	// Returns (summaries, totalCount, error).
@@ -40,7 +40,7 @@ func NewStore(db *pgxpool.Pool) *Store {
 // The entire operation runs in a single transaction:
 //  1. DELETE FROM repo_owners WHERE repo_id = repoID
 //  2. Batch INSERT all owners (skipped when owners is empty)
-func (s *Store) SyncRepoOwners(ctx context.Context, repoID uuid.UUID, owners []ownerparser.ParsedOwner) error {
+func (s *Store) SyncRepoOwners(ctx context.Context, repoID uuid.UUID, owners []codeowners.ParsedOwner) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err

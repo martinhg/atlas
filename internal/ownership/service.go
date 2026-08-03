@@ -6,7 +6,7 @@ import (
 
 	gogithub "github.com/google/go-github/v69/github"
 	"github.com/google/uuid"
-	ownerparser "github.com/nesbite/atlas/internal/ownership/parser"
+	"github.com/nesbite/atlas/internal/ingest/parsers/codeowners"
 )
 
 // Service orchestrates CODEOWNERS discovery, parsing, and storage for a single
@@ -72,11 +72,11 @@ func (s *Service) SyncRepoOwnership(
 	}
 
 	// Parse the content (or use empty slice if no CODEOWNERS found).
-	var owners []ownerparser.ParsedOwner
+	var owners []codeowners.ParsedOwner
 	if found {
-		owners = ownerparser.ParseCODEOWNERS([]byte(content))
+		owners = codeowners.ParseCODEOWNERS([]byte(content))
 	} else {
-		owners = []ownerparser.ParsedOwner{}
+		owners = []codeowners.ParsedOwner{}
 	}
 
 	// Persist (DELETE + INSERT in transaction). Even an empty slice clears stale data.

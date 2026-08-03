@@ -1,15 +1,15 @@
-package parser
+package npm
 
-import "encoding/json"
+import (
+	"encoding/json"
 
-// ParsedDep represents a single dependency entry parsed from a package.json file.
-type ParsedDep struct {
-	Ecosystem  string
-	Name       string
-	Version    string
-	DepType    string // "dep", "devDep", "peer", "optional"
-	SourceFile string
-}
+	"github.com/nesbite/atlas/internal/ingest/parsers/depmodel"
+)
+
+// ParsedDep is an alias for the shared depmodel.ParsedDep type. It is kept
+// here so existing callers referencing npm.ParsedDep continue to compile
+// unchanged while the codebase migrates to depmodel.ParsedDep directly.
+type ParsedDep = depmodel.ParsedDep
 
 // packageJSON is the minimal shape of a package.json file relevant to dependency parsing.
 type packageJSON struct {
@@ -35,10 +35,10 @@ func ParsePackageJSON(content []byte, sourcePath string) []ParsedDep {
 			continue
 		}
 		result = append(result, ParsedDep{
-			Ecosystem:  "npm",
+			Ecosystem:  depmodel.EcosystemNpm,
 			Name:       name,
 			Version:    version,
-			DepType:    "dep",
+			DepType:    depmodel.Direct,
 			SourceFile: sourcePath,
 		})
 	}
@@ -47,10 +47,10 @@ func ParsePackageJSON(content []byte, sourcePath string) []ParsedDep {
 			continue
 		}
 		result = append(result, ParsedDep{
-			Ecosystem:  "npm",
+			Ecosystem:  depmodel.EcosystemNpm,
 			Name:       name,
 			Version:    version,
-			DepType:    "devDep",
+			DepType:    depmodel.Dev,
 			SourceFile: sourcePath,
 		})
 	}
@@ -59,10 +59,10 @@ func ParsePackageJSON(content []byte, sourcePath string) []ParsedDep {
 			continue
 		}
 		result = append(result, ParsedDep{
-			Ecosystem:  "npm",
+			Ecosystem:  depmodel.EcosystemNpm,
 			Name:       name,
 			Version:    version,
-			DepType:    "peer",
+			DepType:    depmodel.Peer,
 			SourceFile: sourcePath,
 		})
 	}
@@ -71,10 +71,10 @@ func ParsePackageJSON(content []byte, sourcePath string) []ParsedDep {
 			continue
 		}
 		result = append(result, ParsedDep{
-			Ecosystem:  "npm",
+			Ecosystem:  depmodel.EcosystemNpm,
 			Name:       name,
 			Version:    version,
-			DepType:    "optional",
+			DepType:    depmodel.Optional,
 			SourceFile: sourcePath,
 		})
 	}

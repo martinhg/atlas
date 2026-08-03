@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/nesbite/atlas/internal/dependency/parser"
+	"github.com/nesbite/atlas/internal/ingest/parsers/depmodel"
 	"github.com/nesbite/atlas/internal/platform/database"
 	"github.com/nesbite/atlas/migrations"
 )
@@ -27,10 +27,10 @@ type mockDepStore struct {
 
 type syncCall struct {
 	repoID uuid.UUID
-	deps   []parser.ParsedDep
+	deps   []depmodel.ParsedDep
 }
 
-func (m *mockDepStore) SyncRepoDependencies(ctx context.Context, repoID uuid.UUID, deps []parser.ParsedDep) error {
+func (m *mockDepStore) SyncRepoDependencies(ctx context.Context, repoID uuid.UUID, deps []depmodel.ParsedDep) error {
 	m.syncCalls = append(m.syncCalls, syncCall{repoID: repoID, deps: deps})
 	return m.syncErr
 }
@@ -60,7 +60,7 @@ func TestSyncRepoDependencies_stores_deps(t *testing.T) {
 	store := &mockDepStore{}
 	ctx := context.Background()
 	repoID := uuid.New()
-	deps := []parser.ParsedDep{
+	deps := []depmodel.ParsedDep{
 		{Ecosystem: "npm", Name: "react", Version: "^18.0.0", DepType: "dep", SourceFile: "package.json"},
 		{Ecosystem: "npm", Name: "typescript", Version: "^5.0.0", DepType: "devDep", SourceFile: "package.json"},
 	}
@@ -352,7 +352,7 @@ func TestIntegration_SyncRepoDependencies(t *testing.T) {
 	orgID := makeTestOrg(t, pool)
 	repoID := makeTestRepo(t, pool, orgID, "sync-test")
 
-	deps := []parser.ParsedDep{
+	deps := []depmodel.ParsedDep{
 		{Ecosystem: "npm", Name: "react", Version: "^18.0.0", DepType: "dep", SourceFile: "package.json"},
 		{Ecosystem: "npm", Name: "typescript", Version: "^5.0.0", DepType: "devDep", SourceFile: "package.json"},
 	}
@@ -375,7 +375,7 @@ func TestIntegration_SyncRepoDependencies(t *testing.T) {
 	}
 
 	// Re-sync with a different set — should replace.
-	newDeps := []parser.ParsedDep{
+	newDeps := []depmodel.ParsedDep{
 		{Ecosystem: "npm", Name: "vue", Version: "^3.0.0", DepType: "dep", SourceFile: "package.json"},
 	}
 	if err := store.SyncRepoDependencies(ctx, repoID, newDeps); err != nil {
@@ -409,9 +409,9 @@ func TestIntegration_ListByOrg_pagination(t *testing.T) {
 	repoID := makeTestRepo(t, pool, orgID, "list-test")
 
 	// Create 5 deps.
-	deps := make([]parser.ParsedDep, 5)
+	deps := make([]depmodel.ParsedDep, 5)
 	for i := range deps {
-		deps[i] = parser.ParsedDep{
+		deps[i] = depmodel.ParsedDep{
 			Ecosystem:  "npm",
 			Name:       "dep-" + string(rune('a'+i)),
 			Version:    "^1.0.0",
@@ -456,7 +456,7 @@ func TestIntegration_GetDetail(t *testing.T) {
 	repo1 := makeTestRepo(t, pool, orgID, "detail-a")
 	repo2 := makeTestRepo(t, pool, orgID, "detail-b")
 
-	deps := []parser.ParsedDep{
+	deps := []depmodel.ParsedDep{
 		{Ecosystem: "npm", Name: "shared-lib", Version: "^1.0.0", DepType: "dep", SourceFile: "package.json"},
 	}
 	if err := store.SyncRepoDependencies(ctx, repo1, deps); err != nil {
@@ -506,7 +506,7 @@ func TestIntegration_ListByOrg_q_filters_by_name(t *testing.T) {
 	orgID := makeTestOrg(t, pool)
 	repoID := makeTestRepo(t, pool, orgID, "filter-test")
 
-	deps := []parser.ParsedDep{
+	deps := []depmodel.ParsedDep{
 		{Ecosystem: "npm", Name: "lodash", Version: "^4.0.0", DepType: "dep", SourceFile: "package.json"},
 		{Ecosystem: "npm", Name: "lodash-fp", Version: "^4.0.0", DepType: "dep", SourceFile: "package.json"},
 		{Ecosystem: "npm", Name: "axios", Version: "^1.0.0", DepType: "dep", SourceFile: "package.json"},
@@ -540,7 +540,7 @@ func TestIntegration_ListByOrg_q_case_insensitive(t *testing.T) {
 	orgID := makeTestOrg(t, pool)
 	repoID := makeTestRepo(t, pool, orgID, "ci-test")
 
-	deps := []parser.ParsedDep{
+	deps := []depmodel.ParsedDep{
 		{Ecosystem: "npm", Name: "Lodash", Version: "^4.0.0", DepType: "dep", SourceFile: "package.json"},
 	}
 	if err := store.SyncRepoDependencies(ctx, repoID, deps); err != nil {
@@ -567,7 +567,7 @@ func TestIntegration_ListByOrg_q_no_match_returns_empty(t *testing.T) {
 	orgID := makeTestOrg(t, pool)
 	repoID := makeTestRepo(t, pool, orgID, "nomatch-test")
 
-	deps := []parser.ParsedDep{
+	deps := []depmodel.ParsedDep{
 		{Ecosystem: "npm", Name: "axios", Version: "^1.0.0", DepType: "dep", SourceFile: "package.json"},
 	}
 	if err := store.SyncRepoDependencies(ctx, repoID, deps); err != nil {
@@ -595,7 +595,7 @@ func TestIntegration_ListByOrg_vulnCounts(t *testing.T) {
 	orgID := makeTestOrg(t, pool)
 	repoID := makeTestRepo(t, pool, orgID, "vuln-count-test")
 
-	deps := []parser.ParsedDep{
+	deps := []depmodel.ParsedDep{
 		{Ecosystem: "npm", Name: "vulncount-lodash", Version: "^4.17.0", DepType: "dep", SourceFile: "package.json"},
 		{Ecosystem: "npm", Name: "vulncount-clean", Version: "^1.0.0", DepType: "dep", SourceFile: "package.json"},
 	}

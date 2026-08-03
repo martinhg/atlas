@@ -1,0 +1,9 @@
+[project]
+name = "sample-repo"
+version = "0.1.0"
+dependencies = [
+    "click>=8.1.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7.0.0"]

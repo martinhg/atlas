@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/nesbite/atlas/internal/dependency/parser"
+	"github.com/nesbite/atlas/internal/ingest/parsers/depmodel"
 )
 
 // DepStore defines the persistence contract for the dependency domain.
@@ -15,7 +15,7 @@ type DepStore interface {
 	// SyncRepoDependencies replaces all repo_dependencies rows for the given
 	// repo with the provided deps slice. The operation runs inside a transaction:
 	// DELETE existing rows, then INSERT the new ones.
-	SyncRepoDependencies(ctx context.Context, repoID uuid.UUID, deps []parser.ParsedDep) error
+	SyncRepoDependencies(ctx context.Context, repoID uuid.UUID, deps []depmodel.ParsedDep) error
 
 	// ListByOrg returns a paginated, optionally filtered list of unique
 	// dependencies used by any repository in the given org, along with the
@@ -50,7 +50,7 @@ func NewStore(db *pgxpool.Pool) *Store {
 //  3. INSERT repo_dependencies rows
 //
 // Steps 2 and 3 use pgx.Batch to avoid N+1 round-trips.
-func (s *Store) SyncRepoDependencies(ctx context.Context, repoID uuid.UUID, deps []parser.ParsedDep) error {
+func (s *Store) SyncRepoDependencies(ctx context.Context, repoID uuid.UUID, deps []depmodel.ParsedDep) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err

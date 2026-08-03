@@ -1,4 +1,4 @@
-package parser
+package codeowners
 
 import (
 	"testing"
@@ -6,9 +6,9 @@ import (
 
 func TestParseCODEOWNERS(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   []byte
-		want    []ParsedOwner
+		name  string
+		input []byte
+		want  []ParsedOwner
 	}{
 		{
 			name:  "empty byte slice returns empty non-nil slice",
@@ -183,7 +183,7 @@ func TestDetectOwnerType(t *testing.T) {
 		{"user@example.com", "email"},
 		{"dev@company.io", "email"},
 		{"bareusername", "user"}, // fallback
-		{"", "user"},            // fallback for empty
+		{"", "user"},             // fallback for empty
 	}
 
 	for _, tt := range tests {

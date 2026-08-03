@@ -11,7 +11,7 @@ import (
 
 	gogithub "github.com/google/go-github/v69/github"
 	"github.com/google/uuid"
-	ownerparser "github.com/nesbite/atlas/internal/ownership/parser"
+	"github.com/nesbite/atlas/internal/ingest/parsers/codeowners"
 )
 
 // mockOwnershipStoreForService is a test double for OwnershipStore used in service tests.
@@ -22,10 +22,10 @@ type mockOwnershipStoreForService struct {
 
 type syncRepoOwnersCall struct {
 	repoID uuid.UUID
-	owners []ownerparser.ParsedOwner
+	owners []codeowners.ParsedOwner
 }
 
-func (m *mockOwnershipStoreForService) SyncRepoOwners(_ context.Context, repoID uuid.UUID, owners []ownerparser.ParsedOwner) error {
+func (m *mockOwnershipStoreForService) SyncRepoOwners(_ context.Context, repoID uuid.UUID, owners []codeowners.ParsedOwner) error {
 	m.syncCalls = append(m.syncCalls, syncRepoOwnersCall{repoID: repoID, owners: owners})
 	return m.syncErr
 }
