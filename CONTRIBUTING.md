@@ -111,6 +111,9 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). Every commi
 | `impact` | Impact analysis engine |
 | `vuln` | Vulnerability sync and dashboard |
 | `search` | Search module |
+| `scan` | Scan engine and scanners |
+| `graph` | Dependency graph visualization |
+| `risk` | Shared risk heuristics |
 | `web` | Frontend application |
 | `cli` | CLI tool |
 | `db` | Database migrations |

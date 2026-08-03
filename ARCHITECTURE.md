@@ -16,6 +16,11 @@ Atlas is a full-stack application with a Go API server, a React SPA frontend, an
                     │  GitHub API  │
                     │  (App + OAuth)│
                     └──────────────┘
+
+┌─────────────┐
+│  Atlas CLI   │── walks filesystem, parses manifests, reports deps + ownership
+│  (standalone)│
+└─────────────┘
 ```
 
 ## Backend
@@ -29,13 +34,15 @@ Each domain lives in its own package under `internal/` and follows the same stru
 | `auth` | GitHub OAuth flow, JWT issuance/refresh, auth middleware |
 | `org` | Organization CRUD, GitHub App installation, repository sync orchestration |
 | `catalog` | Repository storage and listing |
-| `dependency` | Dependency parsing (npm), storage, and querying |
+| `dependency` | Multi-ecosystem dependency parsing (npm, Composer, Go, pip, Maven, Cargo, PyProject, Gemfile), storage, and querying |
 | `ownership` | CODEOWNERS parsing, ownership storage, and querying |
 | `impact` | Blast radius analysis: dependency → affected repos → affected teams, risk scoring |
 | `vuln` | OSV.dev vulnerability sync (batch query + hydrate), semver range matching, dashboard list/detail |
 | `graph` | Dependency graph data: repo → dep → team nodes+edges in one aggregating query, server-side filters, edge truncation |
 | `risk` | Shared blast-radius risk heuristic (`ComputeRiskScore` + `RiskLevel`), reused by `impact` and `graph` |
 | `search` (via existing packages) | ILIKE filtering on repos and dependencies via `?q=` query param |
+| `ingest/parsers` | Pure-function parsers for 8 ecosystem manifest formats, shared `depmodel` types (Apache 2.0) |
+| `scan` | CLI scan engine: `EcosystemScanner` interface, `WalkDirScanner` helper, 8 ecosystem scanners + CODEOWNERS scanner, report formatting |
 | `platform/config` | Environment variable loading via godotenv |
 | `platform/database` | pgxpool connection, custom migration runner with advisory locking |
 | `platform/github` | GitHub App client factory (JWT → installation token) |
@@ -97,7 +104,7 @@ When a GitHub App installation event is received (or a user connects an org):
 2. Spawns a goroutine calling `syncRepos()`
 3. `syncRepos` fetches all repos from GitHub API, upserts each via `catalog.RepoStore`
 4. For each repo, if a `DepSyncer` is injected, it triggers dependency sync; if an `OwnershipSyncer` is injected, it triggers ownership sync
-5. `dependency.Service.SyncRepoDependencies` discovers `package.json` files via GitHub tree API, fetches content, parses, and batch-upserts dependencies
+5. `dependency.Service.SyncRepoDependencies` discovers manifest files for all supported ecosystems (package.json, composer.json, go.mod, requirements.txt, pom.xml, Cargo.toml, pyproject.toml, Gemfile) via GitHub tree API, fetches content, parses with the corresponding parser, and batch-upserts dependencies
 6. `ownership.Service.SyncRepoOwnership` tries 3 CODEOWNERS paths (CODEOWNERS, .github/CODEOWNERS, docs/CODEOWNERS), parses, and batch-upserts ownership rows; errors are isolated per repo
 7. After the repo loop, if a `VulnSyncer` is injected, `vuln.Service.SyncOrgVulns` collects the org's unique dependencies, batch-queries OSV.dev (chunked at 100, then hydrates each vuln ID via `GET /v1/vulns/{id}`), matches semver ranges in Go, and rebuilds the `dependency_vulnerabilities` links. This step is non-blocking: an OSV failure is logged and never aborts or rolls back the dependency sync
 
@@ -249,9 +256,16 @@ GitHub Actions runs on every PR and push to main:
 | OSV.dev as vulnerability source | No auth, batch endpoint, aggregates GHSA+NVD; querybatch returns only IDs so `vuln.OSVClient` hydrates each via `GET /v1/vulns/{id}` |
 | Sync-time version matching in Go | `dependency_vulnerabilities` is populated at sync time via `stripRange`/`compareSemver`/`isAffected`, keeping dashboard SQL simple (JOIN through the junction) |
 | Cross-domain coupling at the SQL layer only | `dependency.ListByOrg` LEFT JOINs the vuln tables for counts/max-severity without importing the `vuln` package; the dependency detail page reuses the vuln list endpoint via `?package=` |
+| Pure-function parsers | Parsers take `[]byte` and return `[]ParsedDep` — no I/O, no state, trivially testable. Scanner layer handles filesystem walking separately. |
+| `WalkDirScanner` | Eliminates ~50 LOC boilerplate per scanner. Configurable filename match, skip dirs, validate, and parse functions. |
+| Ecosystem dispatch table | `dependency.Service` uses a `[]ecosystemEntry` slice with Name/MatchPath/Parse — adding a new ecosystem is one table entry, not a code change. |
+| OSV.dev-exact ecosystem constants | `depmodel.Ecosystem*` constants match OSV.dev identifiers exactly (e.g. "PyPI" not "pip", "crates.io" not "cargo") for zero-mapping vulnerability queries. |
+| Apache 2.0 for CLI + parsers | CLI and parsers under permissive license to maximize adoption; server + web under BSL 1.1 for commercial protection. |
 
 ## Releases
 
 - **v1.0.0** (PR #29) — MVP Phase 1: auth, catalog, dependencies, ownership, search
 - **v1.0.1** (PR #32) — Hotfixes: personal GitHub account support, auth token refresh, sync race conditions
 - **v1.1.0** (PR #33, #34, #35) — Impact Analysis (blast radius) + Vulnerabilities & Risk Dashboard (OSV.dev); completes the deps → impact → risk chain
+- **v1.2.0** (PR #37, #38, #39) — Dependency Graph Visualization (Sigma.js)
+- **v1.3.0** (PR #41) — CLI atlas scan + multi-ecosystem parsers (8 ecosystems)

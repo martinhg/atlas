@@ -35,7 +35,8 @@ src/
 │   ├── dependencies/    Dependency list/detail pages, tables, hooks, vuln badges
 │   ├── ownership/       Ownership list/detail pages, tables, and hooks
 │   ├── impact/          Impact analysis page, results table, and hook
-│   └── vulnerabilities/ Vulnerability dashboard (list/detail), SeverityBadge, hooks
+│   ├── vulnerabilities/ Vulnerability dashboard (list/detail), SeverityBadge, hooks
+│   └── graph/           GraphPage, GraphCanvas (Sigma.js), GraphFilters, NodeDetailPanel, useGraphData
 ├── hooks/               Shared hooks (useOrgs)
 ├── lib/                 Utilities
 │   ├── api.ts           API types and fetch functions
