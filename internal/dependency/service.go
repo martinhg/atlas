@@ -10,10 +10,12 @@ import (
 	"github.com/nesbite/atlas/internal/ingest/parsers/cargo"
 	"github.com/nesbite/atlas/internal/ingest/parsers/composer"
 	"github.com/nesbite/atlas/internal/ingest/parsers/depmodel"
+	"github.com/nesbite/atlas/internal/ingest/parsers/gemfile"
 	"github.com/nesbite/atlas/internal/ingest/parsers/gomod"
 	"github.com/nesbite/atlas/internal/ingest/parsers/maven"
 	"github.com/nesbite/atlas/internal/ingest/parsers/npm"
 	"github.com/nesbite/atlas/internal/ingest/parsers/pip"
+	"github.com/nesbite/atlas/internal/ingest/parsers/pyproject"
 )
 
 // DepSyncer is the interface consumed by org.syncRepos. It decouples the org
@@ -51,6 +53,8 @@ var ecosystems = []ecosystemEntry{
 	{Name: "pip", MatchPath: matchRequirementsTxt, Parse: pip.ParseRequirementsTxt},
 	{Name: "cargo", MatchPath: matchCargoToml, Parse: cargo.ParseCargoToml},
 	{Name: "maven", MatchPath: matchPomXML, Parse: maven.ParsePomXML},
+	{Name: "pyproject", MatchPath: matchPyproject, Parse: pyproject.ParsePyprojectToml},
+	{Name: "gemfile", MatchPath: matchGemfile, Parse: gemfile.ParseGemfile},
 }
 
 // SyncRepoDeps discovers every supported manifest file in the repo (see the
@@ -191,4 +195,28 @@ func matchPomXML(path string) bool {
 		return false
 	}
 	return path == "pom.xml" || strings.HasSuffix(path, "/pom.xml")
+}
+
+// matchPyproject returns true when path points to a pyproject.toml file
+// that is NOT inside a Python virtual environment or cache directory
+// (.venv/, venv/, .tox/, __pycache__/). The filename component must be
+// exactly "pyproject.toml" — e.g. "my-pyproject.toml" does NOT match.
+func matchPyproject(path string) bool {
+	for _, dir := range []string{".venv/", "venv/", ".tox/", "__pycache__/"} {
+		if strings.Contains(path, dir) {
+			return false
+		}
+	}
+	return path == "pyproject.toml" || strings.HasSuffix(path, "/pyproject.toml")
+}
+
+// matchGemfile returns true when path points to a Gemfile that is NOT
+// inside a vendor directory (Bundler's `bundle install --deployment`
+// install directory). The filename component must be exactly "Gemfile" —
+// e.g. "my-Gemfile" and "Gemfile.lock" do NOT match.
+func matchGemfile(path string) bool {
+	if strings.Contains(path, "vendor/") {
+		return false
+	}
+	return path == "Gemfile" || strings.HasSuffix(path, "/Gemfile")
 }

@@ -4,13 +4,14 @@ import "testing"
 
 // TestRun_endToEndAgainstTestdata exercises the full scan pipeline
 // (NpmScanner + ComposerScanner + GoModScanner + PipScanner +
-// CargoScanner + MavenScanner + CodeownersScanner via Run) against a real
-// fixture directory under testdata/, rather than mocked scanners or
-// t.TempDir fixtures. This is the integration test required by the PR
-// tasks: it verifies the scanners, the parsers they depend on, and Report
-// aggregation all work together correctly end-to-end.
+// CargoScanner + MavenScanner + PyprojectScanner + GemfileScanner +
+// CodeownersScanner via Run) against a real fixture directory under
+// testdata/, rather than mocked scanners or t.TempDir fixtures. This is the
+// integration test required by the PR tasks: it verifies the scanners, the
+// parsers they depend on, and Report aggregation all work together
+// correctly end-to-end.
 func TestRun_endToEndAgainstTestdata(t *testing.T) {
-	scanners := []EcosystemScanner{NpmScanner{}, NewComposerScanner(), NewGoModScanner(), NewPipScanner(), NewCargoScanner(), NewMavenScanner(), CodeownersScanner{}}
+	scanners := []EcosystemScanner{NpmScanner{}, NewComposerScanner(), NewGoModScanner(), NewPipScanner(), NewCargoScanner(), NewMavenScanner(), NewPyprojectScanner(), NewGemfileScanner(), CodeownersScanner{}}
 
 	report, err := Run("testdata/sample-repo", scanners)
 	if err != nil {
@@ -21,8 +22,8 @@ func TestRun_endToEndAgainstTestdata(t *testing.T) {
 		t.Errorf("expected no warnings for a well-formed fixture, got %+v", report.Warnings)
 	}
 
-	if len(report.Dependencies) != 9 {
-		t.Fatalf("expected 9 dependencies (react + vitest + monolog/monolog + uuid + x/sync + requests + serde + guava + junit), got %+v", report.Dependencies)
+	if len(report.Dependencies) != 13 {
+		t.Fatalf("expected 13 dependencies (react + vitest + monolog/monolog + uuid + x/sync + requests + serde + guava + junit + click + pytest + rails + rspec-rails), got %+v", report.Dependencies)
 	}
 	names := map[string]Dependency{}
 	for _, dep := range report.Dependencies {
@@ -86,6 +87,34 @@ func TestRun_endToEndAgainstTestdata(t *testing.T) {
 	}
 	if junitDep.Version != "4.13.2" || junitDep.DepType != "devDep" || junitDep.Ecosystem != "Maven" {
 		t.Errorf("unexpected junit:junit dependency fields: %+v", junitDep)
+	}
+	click, ok := names["click"]
+	if !ok {
+		t.Fatal("expected a \"click\" dependency in the report")
+	}
+	if click.Version != ">=8.1.0" || click.DepType != "dep" || click.Ecosystem != "PyPI" {
+		t.Errorf("unexpected click dependency fields: %+v", click)
+	}
+	pytest, ok := names["pytest"]
+	if !ok {
+		t.Fatal("expected a \"pytest\" dependency in the report")
+	}
+	if pytest.Version != ">=7.0.0" || pytest.DepType != "optional" || pytest.Ecosystem != "PyPI" {
+		t.Errorf("unexpected pytest dependency fields: %+v", pytest)
+	}
+	rails, ok := names["rails"]
+	if !ok {
+		t.Fatal("expected a \"rails\" dependency in the report")
+	}
+	if rails.Version != "~> 7.1" || rails.DepType != "dep" || rails.Ecosystem != "RubyGems" {
+		t.Errorf("unexpected rails dependency fields: %+v", rails)
+	}
+	rspecRails, ok := names["rspec-rails"]
+	if !ok {
+		t.Fatal("expected a \"rspec-rails\" dependency in the report")
+	}
+	if rspecRails.Version != "" || rspecRails.DepType != "devDep" || rspecRails.Ecosystem != "RubyGems" {
+		t.Errorf("unexpected rspec-rails dependency fields: %+v", rspecRails)
 	}
 
 	if len(report.Owners) != 2 {

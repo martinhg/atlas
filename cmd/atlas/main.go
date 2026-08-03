@@ -59,7 +59,7 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	scanners := []scan.EcosystemScanner{scan.NpmScanner{}, scan.NewComposerScanner(), scan.NewGoModScanner(), scan.NewPipScanner(), scan.NewCargoScanner(), scan.NewMavenScanner(), scan.CodeownersScanner{}}
+	scanners := []scan.EcosystemScanner{scan.NpmScanner{}, scan.NewComposerScanner(), scan.NewGoModScanner(), scan.NewPipScanner(), scan.NewCargoScanner(), scan.NewMavenScanner(), scan.NewPyprojectScanner(), scan.NewGemfileScanner(), scan.CodeownersScanner{}}
 	report, err := scan.Run(*path, scanners)
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "scan failed: %v\n", err)

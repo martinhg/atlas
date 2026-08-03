@@ -31,9 +31,9 @@ func newGitHubClientForTest(t *testing.T, serverURL string) *gogithub.Client {
 
 // treeResponse is the minimal shape the GitHub Git.GetTree API returns.
 type treeResponse struct {
-	SHA       string       `json:"sha"`
-	Truncated bool         `json:"truncated"`
-	Tree      []treeEntry  `json:"tree"`
+	SHA       string      `json:"sha"`
+	Truncated bool        `json:"truncated"`
+	Tree      []treeEntry `json:"tree"`
 }
 
 type treeEntry struct {
@@ -854,3 +854,236 @@ func TestSyncRepoDeps_discovers_pom_xml(t *testing.T) {
 	}
 }
 
+// TestMatchPyproject verifies that matchPyproject correctly identifies
+// valid pyproject.toml paths and excludes anything under a Python virtual
+// environment or cache directory (.venv/, venv/, .tox/, __pycache__/).
+func TestMatchPyproject(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"pyproject.toml", true},
+		{"services/api/pyproject.toml", true},
+		{".venv/lib/pyproject.toml", false},
+		{"venv/lib/pyproject.toml", false},
+		{".tox/py311/pyproject.toml", false},
+		{"__pycache__/pyproject.toml", false},
+		{"my-pyproject.toml", false},
+		{"main.go", false},
+		{"README.md", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got := matchPyproject(tt.path)
+			if got != tt.want {
+				t.Errorf("matchPyproject(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestSyncRepoDeps_discovers_pyproject_toml verifies that SyncRepoDeps
+// discovers, fetches, and parses a pyproject.toml alongside a package.json
+// in the same tree — proving the ecosystem dispatch table handles the
+// pyproject (PyPI) ecosystem too.
+func TestSyncRepoDeps_discovers_pyproject_toml(t *testing.T) {
+	var fetchedPaths []string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if strings.Contains(r.URL.Path, "/git/trees/") {
+			resp := treeResponse{
+				SHA:       "abc123",
+				Truncated: false,
+				Tree: []treeEntry{
+					{Path: "package.json", Type: "blob"},
+					{Path: "pyproject.toml", Type: "blob"},
+					{Path: ".venv/lib/pyproject.toml", Type: "blob"},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		if strings.Contains(r.URL.Path, "/contents/") {
+			parts := strings.SplitN(r.URL.Path, "/contents/", 2)
+			path := ""
+			if len(parts) == 2 {
+				path = parts[1]
+				fetchedPaths = append(fetchedPaths, path)
+			}
+
+			var content string
+			switch path {
+			case "pyproject.toml":
+				content = "[project]\nname = \"acme-app\"\ndependencies = [\"requests>=2.28\"]\n"
+			default:
+				content = `{"dependencies":{"react":"^18.0.0"}}`
+			}
+			encoded := base64.StdEncoding.EncodeToString([]byte(content))
+			resp := map[string]string{
+				"type":     "file",
+				"encoding": "base64",
+				"content":  encoded,
+				"name":     path,
+				"path":     path,
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	client := newGitHubClientForTest(t, srv.URL)
+	store := &mockDepStore{}
+	svc := NewService(store)
+
+	err := svc.SyncRepoDeps(context.Background(), client, uuid.New(), "acme", "web-app", "main")
+	if err != nil {
+		t.Fatalf("SyncRepoDeps: unexpected error: %v", err)
+	}
+
+	for _, p := range fetchedPaths {
+		if strings.Contains(p, ".venv/") {
+			t.Errorf("fetched .venv/ path: %q — should have been excluded", p)
+		}
+	}
+	if len(fetchedPaths) != 2 {
+		t.Fatalf("expected 2 content fetches (package.json + pyproject.toml), got %d: %v", len(fetchedPaths), fetchedPaths)
+	}
+
+	if len(store.syncCalls) != 1 {
+		t.Fatalf("expected 1 SyncRepoDependencies call, got %d", len(store.syncCalls))
+	}
+	deps := store.syncCalls[0].deps
+	if len(deps) != 2 {
+		t.Fatalf("expected 2 synced deps, got %d: %+v", len(deps), deps)
+	}
+	byEcosystem := map[string]bool{}
+	for _, d := range deps {
+		byEcosystem[d.Ecosystem] = true
+	}
+	if !byEcosystem["npm"] || !byEcosystem["PyPI"] {
+		t.Errorf("expected npm and PyPI ecosystems in synced deps, got %+v", deps)
+	}
+}
+
+// TestMatchGemfile verifies that matchGemfile correctly identifies valid
+// Gemfile paths and excludes anything under a vendor/ directory (Bundler's
+// deployment install directory).
+func TestMatchGemfile(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"Gemfile", true},
+		{"services/api/Gemfile", true},
+		{"vendor/bundle/Gemfile", false},
+		{"deep/vendor/bundle/Gemfile", false},
+		{"my-Gemfile", false},
+		{"Gemfile.lock", false},
+		{"main.go", false},
+		{"README.md", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got := matchGemfile(tt.path)
+			if got != tt.want {
+				t.Errorf("matchGemfile(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestSyncRepoDeps_discovers_gemfile verifies that SyncRepoDeps discovers,
+// fetches, and parses a Gemfile alongside a package.json in the same tree —
+// proving the ecosystem dispatch table handles the RubyGems ecosystem too.
+func TestSyncRepoDeps_discovers_gemfile(t *testing.T) {
+	var fetchedPaths []string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if strings.Contains(r.URL.Path, "/git/trees/") {
+			resp := treeResponse{
+				SHA:       "abc123",
+				Truncated: false,
+				Tree: []treeEntry{
+					{Path: "package.json", Type: "blob"},
+					{Path: "Gemfile", Type: "blob"},
+					{Path: "vendor/bundle/Gemfile", Type: "blob"},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		if strings.Contains(r.URL.Path, "/contents/") {
+			parts := strings.SplitN(r.URL.Path, "/contents/", 2)
+			path := ""
+			if len(parts) == 2 {
+				path = parts[1]
+				fetchedPaths = append(fetchedPaths, path)
+			}
+
+			var content string
+			switch path {
+			case "Gemfile":
+				content = "gem 'rails', '~> 7.0'\n"
+			default:
+				content = `{"dependencies":{"react":"^18.0.0"}}`
+			}
+			encoded := base64.StdEncoding.EncodeToString([]byte(content))
+			resp := map[string]string{
+				"type":     "file",
+				"encoding": "base64",
+				"content":  encoded,
+				"name":     path,
+				"path":     path,
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	client := newGitHubClientForTest(t, srv.URL)
+	store := &mockDepStore{}
+	svc := NewService(store)
+
+	err := svc.SyncRepoDeps(context.Background(), client, uuid.New(), "acme", "web-app", "main")
+	if err != nil {
+		t.Fatalf("SyncRepoDeps: unexpected error: %v", err)
+	}
+
+	for _, p := range fetchedPaths {
+		if strings.Contains(p, "vendor/") {
+			t.Errorf("fetched vendor/ path: %q — should have been excluded", p)
+		}
+	}
+	if len(fetchedPaths) != 2 {
+		t.Fatalf("expected 2 content fetches (package.json + Gemfile), got %d: %v", len(fetchedPaths), fetchedPaths)
+	}
+
+	if len(store.syncCalls) != 1 {
+		t.Fatalf("expected 1 SyncRepoDependencies call, got %d", len(store.syncCalls))
+	}
+	deps := store.syncCalls[0].deps
+	if len(deps) != 2 {
+		t.Fatalf("expected 2 synced deps, got %d: %+v", len(deps), deps)
+	}
+	byEcosystem := map[string]bool{}
+	for _, d := range deps {
+		byEcosystem[d.Ecosystem] = true
+	}
+	if !byEcosystem["npm"] || !byEcosystem["RubyGems"] {
+		t.Errorf("expected npm and RubyGems ecosystems in synced deps, got %+v", deps)
+	}
+}
