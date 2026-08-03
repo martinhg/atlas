@@ -134,7 +134,7 @@ React 19, Vite 8, TypeScript, Tailwind CSS v4, shadcn/ui, TanStack Query v5.
 web/src/
 ├── components/          Shared components (DashboardPage, LoginPage, AuthGuard)
 │   └── ui/              shadcn primitives (Button, Card, Avatar, Input, Badge)
-├── features/            Feature modules (catalog, dependencies, ownership, impact)
+├── features/            Feature modules (catalog, dependencies, ownership, impact, vulnerabilities, graph)
 │   ├── catalog/         RepoListPage, RepoDetailPage, RepoTable, useRepos, useRepoDetail, useRepoDeps
 │   ├── dependencies/    DependencyListPage, DependencyDetailPage, hooks, tables
 │   ├── impact/          ImpactAnalysisPage, ImpactResultTable, useImpactAnalysis
